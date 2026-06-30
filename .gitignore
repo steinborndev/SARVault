@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+build/
+dist/
+
+# Environment
+.env
+
+# Data / warehouse artifacts
+*.duckdb
+*.duckdb.wal
+data/
+raw/*.parquet
+
+# dbt
+dbt/target/
+dbt/dbt_packages/
+dbt/logs/
+
+# Windows metadata (recurring contamination guard)
+*:Zone.Identifier
+
+# OS
+.DS_Store

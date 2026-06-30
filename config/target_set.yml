@@ -1,0 +1,19 @@
+# Single source of truth for the compound universe (see SPEC.md §6.0).
+# Changing scope = editing this file only (reproducible, reviewable, no code change).
+#
+# TODO(verify): confirm every target ChEMBL ID against the live database before
+# M1, and record the resulting activity volume.
+chembl_version: "36"
+organism: "Homo sapiens"
+
+targets:
+  # Placeholder entries — IDs MUST be verified against ChEMBL.
+  - chembl_id: "CHEMBL_TODO_001"
+    label: "tubulin"
+  - chembl_id: "CHEMBL_TODO_002"
+    label: "topoisomerase_ii"
+
+activity:
+  standard_types: ["IC50", "GI50", "Ki", "Kd", "EC50"]
+  require_pchembl: true
+  min_confidence_score: 8

@@ -1,0 +1,52 @@
+[project]
+name = "sarvault"
+version = "0.1.0"
+description = "A layered data warehouse over ChEMBL bioactivity data for cytotoxic / tubulin-targeting compound SAR."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "Benjamin Steinborn" }]
+dependencies = [
+  "pyyaml>=6.0",
+  "pandas>=2.0",
+]
+
+# Heavier stacks are wired in per milestone (see SPEC.md §12) to keep the
+# base install — and M0 CI — fast.
+[project.optional-dependencies]
+extract = [
+  "chembl-webresource-client>=0.10",
+  "pyarrow>=15.0",
+  "pandera>=0.18",
+  "duckdb>=1.0",
+]
+dbt = [
+  "dbt-duckdb>=1.8",
+  "dbt-snowflake>=1.8",
+]
+orchestration = [
+  "dagster>=1.7",
+  "dagster-webserver>=1.7",
+]
+dashboard = [
+  "streamlit>=1.36",
+]
+dev = [
+  "pytest>=8.0",
+  "ruff>=0.5",
+  "pyyaml>=6.0",
+]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["extract", "validation", "orchestration"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

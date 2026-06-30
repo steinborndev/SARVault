@@ -1,0 +1,12 @@
+services:
+  pipeline:
+    build: .
+    image: sarvault:dev
+    working_dir: /app
+    volumes:
+      - ./:/app
+    # Provide credentials from M6 onward by copying .env.example to .env and
+    # uncommenting the next two lines.
+    # env_file:
+    #   - .env
+    command: ["python", "-c", "print('scaffold up')"]
