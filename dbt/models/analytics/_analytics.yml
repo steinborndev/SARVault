@@ -1,0 +1,44 @@
+version: 2
+
+models:
+  - name: mart_target_sar
+    description: "Potency summary per compound-target pair (median + max pchembl)."
+    columns:
+      - name: median_pchembl
+        tests: [not_null]
+      - name: max_pchembl
+        tests: [not_null]
+      - name: n_measurements
+        tests: [not_null]
+      - name: compound_key
+        tests:
+          - relationships:
+              arguments:
+                to: ref('dim_compound')
+                field: compound_key
+      - name: target_key
+        tests:
+          - relationships:
+              arguments:
+                to: ref('dim_target')
+                field: target_key
+
+  - name: mart_compound_selectivity
+    description: "Per-compound selectivity (index = best minus second-best target median)."
+    columns:
+      - name: compound_key
+        tests: [unique, not_null]
+      - name: n_targets
+        tests: [not_null]
+
+  - name: mart_chemical_space
+    description: "Per-compound physicochemical profile, potency summary and approved flag."
+    columns:
+      - name: compound_key
+        tests:
+          - unique
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_compound')
+                field: compound_key
