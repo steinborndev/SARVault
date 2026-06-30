@@ -28,3 +28,6 @@ dbt/logs/
 
 # OS
 .DS_Store
+
+# dbt usage tracking (machine-specific UUID)
+dbt/profiles/.user.yml

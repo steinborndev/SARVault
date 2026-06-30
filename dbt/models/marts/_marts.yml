@@ -1,0 +1,55 @@
+version: 2
+
+models:
+  - name: dim_compound
+    description: "Compound dimension (one row per molecule)."
+    columns:
+      - name: compound_key
+        tests: [unique, not_null]
+      - name: molecule_chembl_id
+        tests: [unique, not_null]
+
+  - name: dim_target
+    description: "Target dimension (one row per human target)."
+    columns:
+      - name: target_key
+        tests: [unique, not_null]
+      - name: target_chembl_id
+        tests: [unique, not_null]
+
+  - name: dim_assay
+    description: "Assay dimension (one row per assay at/above the confidence floor)."
+    columns:
+      - name: assay_key
+        tests: [unique, not_null]
+      - name: assay_chembl_id
+        tests: [unique, not_null]
+
+  - name: fact_activity
+    description: "Activity fact (one row per measured activity)."
+    columns:
+      - name: activity_id
+        tests: [unique, not_null]
+      - name: pchembl_value
+        tests: [not_null]
+      - name: compound_key
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_compound')
+                field: compound_key
+      - name: target_key
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_target')
+                field: target_key
+      - name: assay_key
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_assay')
+                field: assay_key
