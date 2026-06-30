@@ -1,0 +1,58 @@
+version: 2
+
+models:
+  - name: stg_activities
+    description: "Filtered, typed activity fact rows (pchembl present, exact relation)."
+    columns:
+      - name: activity_id
+        tests: [unique, not_null]
+      - name: pchembl_value
+        tests: [not_null]
+      - name: standard_type
+        tests:
+          - accepted_values:
+              arguments:
+                values: ["IC50", "GI50", "Ki", "Kd", "EC50"]
+      - name: molecule_chembl_id
+        tests:
+          - relationships:
+              arguments:
+                to: ref('stg_molecules')
+                field: molecule_chembl_id
+      - name: target_chembl_id
+        tests:
+          - relationships:
+              arguments:
+                to: ref('stg_targets')
+                field: target_chembl_id
+
+  - name: stg_molecules
+    description: "One row per molecule with structures and physicochemical properties."
+    columns:
+      - name: molecule_chembl_id
+        tests: [unique, not_null]
+
+  - name: stg_targets
+    description: "Human targets in scope."
+    columns:
+      - name: target_chembl_id
+        tests: [unique, not_null]
+      - name: target_type
+        tests:
+          - accepted_values:
+              arguments:
+                values: ["SINGLE PROTEIN", "PROTEIN COMPLEX GROUP", "PROTEIN FAMILY"]
+
+  - name: stg_assays
+    description: "Assays at or above the confidence floor."
+    columns:
+      - name: assay_chembl_id
+        tests: [unique, not_null]
+      - name: confidence_score
+        tests: [not_null]
+      - name: target_chembl_id
+        tests:
+          - relationships:
+              arguments:
+                to: ref('stg_targets')
+                field: target_chembl_id

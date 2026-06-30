@@ -16,7 +16,7 @@ dist/
 *.duckdb
 *.duckdb.wal
 data/
-raw/*.parquet
+/raw/*.parquet
 
 # dbt
 dbt/target/

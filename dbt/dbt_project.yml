@@ -20,3 +20,7 @@ models:
     analytics:
       +schema: analytics
       +materialized: table
+
+vars:
+  standard_types: ["IC50", "GI50", "Ki", "Kd", "EC50"]
+  min_confidence_score: 5

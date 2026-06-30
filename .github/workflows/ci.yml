@@ -16,8 +16,12 @@ jobs:
       - name: Install dev dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -e ".[dev,extract]"
+          pip install -e ".[dev,extract,dbt]"
       - name: Lint
         run: ruff check .
       - name: Test
         run: pytest -q
+      - name: dbt build (fixtures)
+        env:
+          SARVAULT_RAW_DIR: tests/fixtures/raw
+        run: dbt build --project-dir dbt --profiles-dir dbt/profiles

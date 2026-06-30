@@ -1,0 +1,12 @@
+version: 2
+
+sources:
+  - name: raw
+    description: "ChEMBL records landed by the extract layer as Parquet (file-based raw layer)."
+    meta:
+      external_location: "read_parquet('{{ env_var('SARVAULT_RAW_DIR', 'raw') }}/raw_{name}.parquet')"
+    tables:
+      - name: activities
+      - name: molecules
+      - name: targets
+      - name: assays
