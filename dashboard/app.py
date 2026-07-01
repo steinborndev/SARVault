@@ -77,7 +77,7 @@ except Exception as exc:  # warehouse missing or unbuilt
     st.stop()
 
 # --- header: logo (top left) + scope (top right) ---
-header_left, header_right = st.columns([4, 1])
+header_left, header_right = st.columns([12, 1])
 with header_left:
     st.markdown(_logo_html(), unsafe_allow_html=True)
     st.caption(
@@ -85,7 +85,7 @@ with header_left:
     )
 target_names = data.list_target_names(con)
 prev = st.session_state.get("scope", {})
-with header_right.popover("Scope"):
+with header_right.popover("Scope", width="stretch"):
     sel_targets = st.multiselect("Targets", target_names, default=prev.get("targets", target_names))
     approval = st.radio(
         "Approval", _APPROVAL, index=_APPROVAL.index(prev.get("approval", "all")), horizontal=True

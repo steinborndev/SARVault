@@ -1,6 +1,7 @@
 """Compound library: filterable list + per-compound detail drill-down."""
 
 import base64
+import math
 
 import pandas as pd
 import streamlit as st
@@ -62,13 +63,16 @@ def render(con, scope):
     with st.sidebar:
         st.markdown("### Filters")
         query = st.text_input("Search (ChEMBL ID / name)").strip().lower()
-        p_lo, p_hi = st.slider("best pChEMBL", 0.0, 14.0, (0.0, 14.0), 0.1)
+        p_lo, p_hi = st.slider("best pChEMBL", 0.0, 14.0, (0.0, 14.0), step=0.5)
         mw_series = cat["mw_freebase"].dropna()
-        mw_max = float(mw_series.max()) if not mw_series.empty else 1000.0
-        mw_lo, mw_hi = st.slider("MW range", 0.0, max(mw_max, 1.0), (0.0, max(mw_max, 1.0)))
-        logp_lo, logp_hi = st.slider("logP range", -5.0, 12.0, (-5.0, 12.0), 0.1)
+        mw_top = mw_series.max() if not mw_series.empty else 1000.0
+        mw_ceiling = int(math.ceil(mw_top / 50) * 50)
+        mw_lo, mw_hi = st.slider("MW range", 0, mw_ceiling, (0, mw_ceiling), step=50)
+        logp_lo, logp_hi = st.slider("logP range", -5.0, 12.0, (-5.0, 12.0), step=0.5)
         max_ro5 = st.slider("Max Ro5 violations", 0, 4, 4)
 
+    # between() is inclusive on both ends, so a compound on a boundary (e.g. MW 500)
+    # matches both the 450-500 and 500-550 windows.
     view = cat[
         cat["best_pchembl"].between(p_lo, p_hi)
         & cat["mw_freebase"].fillna(0).between(mw_lo, mw_hi)
@@ -81,19 +85,30 @@ def render(con, scope):
             | view["pref_name"].fillna("").str.lower().str.contains(query)
         ]
 
-    st.caption(f"{len(view)} compounds")
-    st.dataframe(
-        view[_LIST_COLS].sort_values("best_pchembl", ascending=False),
+    disp = view.sort_values("best_pchembl", ascending=False).reset_index(drop=True)
+    st.caption(f"{len(disp)} compounds — click a row to inspect it")
+    event = st.dataframe(
+        disp[_LIST_COLS],
         hide_index=True,
         width="stretch",
+        on_select="rerun",
+        selection_mode="single-row",
+        key="lib_rows",
     )
-    if view.empty:
+    if disp.empty:
         return
 
+    # a clicked row drives the selection in "Inspect a compound"
+    selected_rows = event.selection.rows
+    if selected_rows and selected_rows[0] < len(disp):
+        st.session_state["inspect_compound"] = disp.iloc[selected_rows[0]]["molecule_chembl_id"]
+
     st.subheader("Inspect a compound")
-    options = view.sort_values("best_pchembl", ascending=False)["molecule_chembl_id"].tolist()
-    chosen = st.selectbox("Compound", options, label_visibility="collapsed")
-    row = view[view["molecule_chembl_id"] == chosen].iloc[0]
+    options = disp["molecule_chembl_id"].tolist()
+    if st.session_state.get("inspect_compound") not in options:
+        st.session_state["inspect_compound"] = options[0]
+    chosen = st.selectbox("Compound", options, key="inspect_compound", label_visibility="collapsed")
+    row = disp[disp["molecule_chembl_id"] == chosen].iloc[0]
 
     st.markdown(f"### {chosen} — {row['pref_name'] or chosen}")
     st.link_button("View on ChEMBL", _CHEMBL_URL.format(chosen))
