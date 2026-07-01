@@ -60,3 +60,18 @@ models:
         tests: [not_null]
       - name: n_targets
         tests: [not_null]
+
+  - name: mart_compound_xref
+    description: "Compound external cross-references with resolved URLs."
+    columns:
+      - name: compound_key
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_compound')
+                field: compound_key
+      - name: source
+        tests: [not_null]
+      - name: xref_id
+        tests: [not_null]

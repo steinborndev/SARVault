@@ -48,6 +48,19 @@ def compound_target_profile(con: duckdb.DuckDBPyConnection, compound_key: int) -
     ).df()
 
 
+def compound_xrefs(con: duckdb.DuckDBPyConnection, compound_key: int) -> pd.DataFrame:
+    """External cross-references (source, id, resolved URL) for one compound."""
+    return con.execute(
+        """
+        select display_name, xref_id, url
+        from main_analytics.mart_compound_xref
+        where compound_key = ?
+        order by display_name
+        """,
+        [compound_key],
+    ).df()
+
+
 def list_target_names(con: duckdb.DuckDBPyConnection) -> list[str]:
     return (
         con.execute("select pref_name from main_marts.dim_target order by pref_name")

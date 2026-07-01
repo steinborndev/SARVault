@@ -158,6 +158,7 @@ def test_data_access_against_warehouse():
     assert {"canonical_smiles", "best_pchembl", "n_targets"}.issubset(cat.columns)
     key = int(cat["compound_key"].iloc[0])
     assert {"target", "median_pchembl"}.issubset(data.compound_target_profile(con, key).columns)
+    assert {"display_name", "xref_id", "url"}.issubset(data.compound_xrefs(con, key).columns)
     assert data.list_target_names(con)
     cfg = data.pipeline_config()
     assert cfg["chembl_version"] and cfg["min_confidence_score"] >= 0

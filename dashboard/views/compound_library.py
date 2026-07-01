@@ -119,6 +119,17 @@ def _detail(con, row, chosen):
         if pd.notna(row["selectivity_index"]):
             st.metric("Selectivity index (log10 fold)", round(float(row["selectivity_index"]), 2))
 
+    xrefs = data.compound_xrefs(con, int(row["compound_key"]))
+    if not xrefs.empty:
+        st.markdown("**External references**")
+        parts = []
+        for _, ref in xrefs.iterrows():
+            if pd.notna(ref["url"]) and ref["url"]:
+                parts.append(f"[{ref['display_name']}]({ref['url']})")
+            else:
+                parts.append(f"{ref['display_name']} ({ref['xref_id']})")
+        st.markdown(" · ".join(parts))
+
     st.divider()
     st.markdown(f"**Lipinski Ro5** — {_ro5_line(row)}")
     st.caption(
