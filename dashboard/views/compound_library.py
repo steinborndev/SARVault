@@ -124,10 +124,11 @@ def _detail(con, row, chosen):
         st.markdown("**External references**")
         parts = []
         for _, ref in xrefs.iterrows():
+            extra = f" :gray[+{int(ref['n_refs']) - 1}]" if ref["n_refs"] > 1 else ""
             if pd.notna(ref["url"]) and ref["url"]:
-                parts.append(f"[{ref['display_name']}]({ref['url']})")
+                parts.append(f"[{ref['display_name']}]({ref['url']}){extra}")
             else:
-                parts.append(f"{ref['display_name']} ({ref['xref_id']})")
+                parts.append(f"{ref['display_name']} ({ref['xref_id']}){extra}")
         st.markdown(" · ".join(parts))
 
     st.divider()

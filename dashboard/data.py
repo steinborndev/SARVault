@@ -49,12 +49,17 @@ def compound_target_profile(con: duckdb.DuckDBPyConnection, compound_key: int) -
 
 
 def compound_xrefs(con: duckdb.DuckDBPyConnection, compound_key: int) -> pd.DataFrame:
-    """External cross-references (source, id, resolved URL) for one compound."""
+    """One representative cross-reference per source, plus the total count per source."""
     return con.execute(
         """
-        select display_name, xref_id, url
+        select
+            display_name,
+            min(xref_id)           as xref_id,
+            arg_min(url, xref_id)  as url,
+            count(*)               as n_refs
         from main_analytics.mart_compound_xref
         where compound_key = ?
+        group by display_name
         order by display_name
         """,
         [compound_key],
