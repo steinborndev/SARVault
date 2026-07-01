@@ -18,7 +18,7 @@ def render(con, scope):
     targets = sorted(sar["target_pref_name"].unique())
     selected = st.selectbox("Target", targets)
     max_meas = int(sar["n_measurements"].max())
-    min_meas = st.slider("Min measurements", 1, max(max_meas, 1), 1)
+    min_meas = st.slider("Min measurements", 1, max_meas, 1) if max_meas > 1 else 1
     low, high = st.slider("median pChEMBL range", 0.0, 14.0, (5.0, 14.0), 0.1)
 
     view = sar[
