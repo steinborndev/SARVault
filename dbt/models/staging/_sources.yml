@@ -12,3 +12,4 @@ sources:
       - name: assays
       - name: xref_unichem
       - name: pdbe_structures
+      - name: pdbe_summary

@@ -221,3 +221,76 @@ def test_ligand_codes_from_raw_reads_unichem_pdbe(tmp_path):
     ).to_parquet(tmp_path / "raw_xref_unichem.parquet", index=False)
     refs = pdbe.ligand_codes_from_raw(raw_dir=tmp_path)
     assert list(refs["ligand_code"]) == ["AIN"]
+
+
+class _PdbeMetaSession:
+    """Serves summary/experiment records per id via GET, keyed by endpoint URL."""
+
+    def __init__(self, summaries, experiments):
+        self.summaries = summaries
+        self.experiments = experiments
+        self.gets = []
+
+    def get(self, url, timeout=None):
+        pid = url.rstrip("/").split("/")[-1]
+        self.gets.append(url)
+        src = self.summaries if "summary" in url else self.experiments
+        if pid not in src:
+            return _PdbeResponse({}, status_code=404)
+        # PDBe wraps each entry's record in a one-element list keyed by pdb id.
+        return _PdbeResponse({pid: [src[pid]]})
+
+
+def test_fetch_pdb_metadata_merges_summary_and_experiment():
+    from extract import pdbe
+
+    session = _PdbeMetaSession(
+        summaries={
+            "1oxr": {
+                "title": "COX-2 with aspirin",
+                "experimental_method": ["X-ray diffraction"],
+                "release_date": "20040115",
+            }
+        },
+        experiments={"1oxr": {"resolution": 2.0}},
+    )
+    df = pdbe.fetch_pdb_metadata(["1OXR"], session=session)
+    row = df.iloc[0]
+    assert row["pdb_id"] == "1oxr"  # lowercased
+    assert row["title"] == "COX-2 with aspirin"
+    assert row["method"] == "X-ray diffraction"
+    assert row["year"] == "2004"
+    assert row["resolution"] == 2.0
+
+
+def test_fetch_pdb_metadata_tolerates_missing_entries():
+    from extract import pdbe
+
+    df = pdbe.fetch_pdb_metadata(["ZZZZ"], session=_PdbeMetaSession({}, {}))
+    row = df.iloc[0]
+    assert row["pdb_id"] == "zzzz"
+    assert row["title"] is None
+    assert row["method"] is None
+    assert row["year"] is None
+    assert row["resolution"] is None
+
+
+def test_land_pdbe_summary_writes_provenance(tmp_path):
+    from extract import pdbe
+
+    df = pd.DataFrame(
+        [
+            {
+                "pdb_id": "1oxr",
+                "title": "t",
+                "method": "X-ray diffraction",
+                "year": "2004",
+                "resolution": 2.0,
+            }
+        ]
+    )
+    out = pdbe.land_pdbe_summary(df, "36", raw_dir=tmp_path)
+    landed = pd.read_parquet(out)
+    assert {"pdb_id", "title", "method", "year", "resolution"}.issubset(landed.columns)
+    for col in pdbe.PROVENANCE_COLUMNS:
+        assert col in landed.columns and landed[col].notna().all()

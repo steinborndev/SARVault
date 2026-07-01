@@ -14,6 +14,9 @@ with pdbe_xref as (
 structures as (
     select ligand_code, pdb_id from {{ ref('stg_pdbe_structure') }}
 ),
+summary as (
+    select pdb_id, title, method, year, resolution from {{ ref('stg_pdbe_summary') }}
+),
 compound as (
     select compound_key, molecule_chembl_id from {{ ref('dim_compound') }}
 )
@@ -22,7 +25,12 @@ select distinct
     c.compound_key,
     c.molecule_chembl_id,
     x.ligand_code,
-    s.pdb_id
+    s.pdb_id,
+    m.title,
+    m.method,
+    m.year,
+    m.resolution
 from pdbe_xref x
 join compound c on x.molecule_chembl_id = c.molecule_chembl_id
 join structures s on x.ligand_code = s.ligand_code
+left join summary m on s.pdb_id = m.pdb_id

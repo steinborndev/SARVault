@@ -52,6 +52,36 @@ def _mfmt(value, decimals: int) -> str:
     return f"{value:.{decimals}f}" if pd.notna(value) else "—"
 
 
+_METHOD_SHORT = {
+    "X-ray diffraction": "X-ray",
+    "Electron Microscopy": "cryo-EM",
+    "Solution NMR": "NMR",
+    "Solid-state NMR": "ss-NMR",
+    "Neutron Diffraction": "neutron",
+}
+
+
+def _pdb_meta(rec) -> str:
+    """Compact 'method resolution · year' string from a PDB entry row (parts optional)."""
+    method = rec.get("method")
+    method_s = _METHOD_SHORT.get(method, method) if isinstance(method, str) and method else None
+    res = rec.get("resolution")
+    res_s = f"{float(res):.1f} Å" if pd.notna(res) else None
+    year = rec.get("year")
+    year_s = str(int(year)) if pd.notna(year) else None
+    method_res = " ".join(part for part in [method_s, res_s] if part)
+    return " · ".join(part for part in [method_res, year_s] if part)
+
+
+def _pdb_label(rec) -> str:
+    """Dropdown label: 'CODE — full title · X-ray 2.1 Å · 2013' (metadata parts optional)."""
+    pid = str(rec["pdb_id"]).upper()
+    title = rec.get("title")
+    head = f"{pid} — {title}" if isinstance(title, str) and title else pid
+    meta = _pdb_meta(rec)
+    return f"{head} · {meta}" if meta else head
+
+
 def _structure_html(svg: str) -> str:
     b64 = base64.b64encode(svg.encode()).decode()
     return (
@@ -140,17 +170,17 @@ def _detail(con, row, chosen):
     pdb = data.compound_pdb_entries(con, int(row["compound_key"]))
     if not pdb.empty:
         with st.expander(f"🧬 3D co-crystal structure (PDBe) — {len(pdb)} entries"):
+            labels = {rec["pdb_id"]: _pdb_label(rec) for _, rec in pdb.iterrows()}
             pick = st.selectbox(
                 "PDB entry",
                 pdb["pdb_id"].tolist(),
-                format_func=str.upper,
+                format_func=lambda p: labels.get(p, p.upper()),
                 key=f"pdb_pick_{chosen}",
             )
-            ligand = pdb.loc[pdb["pdb_id"] == pick, "ligand_code"].iloc[0]
+            sel = pdb.loc[pdb["pdb_id"] == pick].iloc[0]
             st.caption(
-                f"Ligand `{ligand}` bound in **{pick.upper()}** — "
-                f"co-crystal structure of the payload at its target · "
-                f"[open on PDBe](https://www.ebi.ac.uk/pdbe/entry/pdb/{pick})"
+                f"Ligand `{sel['ligand_code']}` · "
+                f"[open {pick.upper()} on PDBe](https://www.ebi.ac.uk/pdbe/entry/pdb/{pick})"
             )
             components.html(viewer.pdbe_molstar_html(pick), height=960)
 

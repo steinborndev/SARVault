@@ -3,7 +3,9 @@
 Compounds carry a PDBe cross-reference whose id is a chemical-component (het)
 code. The PDBe REST API's ``in_pdb`` endpoint lists every PDB entry that contains
 a given component, so this stage turns each ligand code into the concrete
-co-crystal structures the dashboard renders in its 3D viewer.
+co-crystal structures the dashboard renders in its 3D viewer. Each resolved entry
+is then enriched with title / method / year / resolution from the PDBe summary and
+experiment endpoints, so the viewer's entry picker shows meaningful labels.
 
 Run after the ChEMBL/UniChem extract (it reads their raw Parquet) and before
 ``dbt build``:
@@ -22,6 +24,8 @@ import pandas as pd
 from extract.chembl_client import build_session
 
 PDBE_IN_PDB = "https://www.ebi.ac.uk/pdbe/api/pdb/compound/in_pdb"
+PDBE_SUMMARY = "https://www.ebi.ac.uk/pdbe/api/pdb/entry/summary/"
+PDBE_EXPERIMENT = "https://www.ebi.ac.uk/pdbe/api/pdb/entry/experiment/"
 RAW_DIR = Path(__file__).resolve().parents[1] / "raw"
 PROVENANCE_COLUMNS = ["_fetch_ts", "_source_endpoint", "_chembl_version", "_row_hash"]
 # Common ligands appear in hundreds of entries; cap per code to keep the raw
@@ -123,6 +127,59 @@ def resolve_pdb_entries(
     return pd.DataFrame(rows, columns=["ligand_code", "pdb_id"])
 
 
+def _first_record(payload: dict, pid: str) -> dict:
+    """Return the first metadata object for a PDB id from a batch response.
+
+    PDBe batch endpoints key the response by lowercased PDB id and wrap each
+    entry's data in a one-element list; be defensive about both shapes.
+    """
+    value = (payload or {}).get(pid) or (payload or {}).get(pid.upper())
+    if isinstance(value, list):
+        return value[0] if value else {}
+    return value if isinstance(value, dict) else {}
+
+
+def _get_record(session, base_url: str, pid: str, timeout: int) -> dict:
+    """GET one PDB id's metadata object from a PDBe entry endpoint (404 -> {})."""
+    response = session.get(f"{base_url}{pid}", timeout=timeout)
+    if response.status_code == 404:
+        return {}
+    response.raise_for_status()
+    return _first_record(response.json(), pid)
+
+
+def fetch_pdb_metadata(pdb_ids, session=None, timeout: int = 60) -> pd.DataFrame:
+    """Enrich PDB ids with title / method / year / resolution from PDBe.
+
+    Title, experimental method and release year come from the summary endpoint;
+    resolution comes from the experiment endpoint. Queried per id via GET (the
+    documented, reliable access pattern). Returns columns: pdb_id, title, method,
+    year, resolution.
+    """
+    ids = sorted({str(p).lower() for p in pdb_ids if p})
+    if not ids:
+        return pd.DataFrame(columns=["pdb_id", "title", "method", "year", "resolution"])
+    session = session or build_session()
+
+    rows = []
+    for pid in ids:
+        summary = _get_record(session, PDBE_SUMMARY, pid, timeout)
+        experiment = _get_record(session, PDBE_EXPERIMENT, pid, timeout)
+        methods = summary.get("experimental_method") or []
+        release = str(summary.get("release_date") or "")
+        year = release[:4] if release[:4].isdigit() else None
+        rows.append(
+            {
+                "pdb_id": pid,
+                "title": (summary.get("title") or "").strip() or None,
+                "method": (methods[0] if isinstance(methods, list) and methods else None),
+                "year": year,
+                "resolution": experiment.get("resolution"),
+            }
+        )
+    return pd.DataFrame(rows, columns=["pdb_id", "title", "method", "year", "resolution"])
+
+
 def _row_hash(record: dict) -> str:
     encoded = json.dumps(record, sort_keys=True, default=str).encode("utf-8")
     return hashlib.sha256(encoded).hexdigest()
@@ -146,6 +203,20 @@ def land_pdbe(df: pd.DataFrame, chembl_version: str, raw_dir: Path | str = RAW_D
     return out_path
 
 
+def land_pdbe_summary(df: pd.DataFrame, chembl_version: str, raw_dir: Path | str = RAW_DIR) -> Path:
+    """Stamp provenance and write raw_pdbe_summary.parquet (grain: pdb_id)."""
+    raw_dir = Path(raw_dir)
+    raw_dir.mkdir(parents=True, exist_ok=True)
+    out = df.copy()
+    out["_fetch_ts"] = datetime.now(timezone.utc).isoformat()
+    out["_source_endpoint"] = "pdbe/entry/summary+experiment"
+    out["_chembl_version"] = str(chembl_version)
+    out["_row_hash"] = [_row_hash(r) for r in out.to_dict("records")]
+    out_path = raw_dir / "raw_pdbe_summary.parquet"
+    out.to_parquet(out_path, index=False)
+    return out_path
+
+
 def main() -> None:
     from extract.config import load_config
 
@@ -157,6 +228,10 @@ def main() -> None:
         f"pdbe structures: {len(structures)} rows "
         f"from {refs['ligand_code'].nunique()} ligand code(s) -> {out}"
     )
+
+    metadata = fetch_pdb_metadata(structures["pdb_id"].tolist())
+    meta_out = land_pdbe_summary(metadata, config.chembl_version)
+    print(f"pdbe summary: {len(metadata)} entries enriched -> {meta_out}")
 
 
 if __name__ == "__main__":

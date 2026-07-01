@@ -67,10 +67,10 @@ def compound_xrefs(con: duckdb.DuckDBPyConnection, compound_key: int) -> pd.Data
 
 
 def compound_pdb_entries(con: duckdb.DuckDBPyConnection, compound_key: int) -> pd.DataFrame:
-    """Co-crystal PDB entries for one compound (its resolved PDBe structures)."""
+    """Co-crystal PDB entries for one compound, enriched with entry metadata."""
     return con.execute(
         """
-        select distinct ligand_code, pdb_id
+        select distinct ligand_code, pdb_id, title, method, year, resolution
         from main_analytics.mart_compound_pdb
         where compound_key = ?
         order by pdb_id

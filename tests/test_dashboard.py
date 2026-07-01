@@ -32,7 +32,12 @@ def test_sar_ranking_bar_returns_figure():
 
 def test_compound_potency_bar_returns_figure():
     df = pd.DataFrame(
-        {"target": ["Tubulin"], "median_pchembl": [7.5], "max_pchembl": [7.5], "n_measurements": [1]}
+        {
+            "target": ["Tubulin"],
+            "median_pchembl": [7.5],
+            "max_pchembl": [7.5],
+            "n_measurements": [1],
+        }
     )
     assert isinstance(charts.compound_potency_bar(df), go.Figure)
 
@@ -76,7 +81,12 @@ def _scope_fixtures():
     target_sar = pd.DataFrame(
         {
             "compound_key": [1, 1, 2, 3],
-            "target_pref_name": ["Tubulin", "DNA topoisomerase 1", "Tubulin", "DNA topoisomerase 1"],
+            "target_pref_name": [
+                "Tubulin",
+                "DNA topoisomerase 1",
+                "Tubulin",
+                "DNA topoisomerase 1",
+            ],
             "n_measurements": [2, 1, 3, 1],
         }
     )
@@ -105,14 +115,18 @@ def test_resolve_scope_keys_min_potency():
 
 
 def test_ro5_breakdown():
-    row = pd.Series({"mw_freebase": 451.0, "alogp": 6.9, "hbd": 1, "hba": 4, "num_ro5_violations": 1})
+    row = pd.Series(
+        {"mw_freebase": 451.0, "alogp": 6.9, "hbd": 1, "hba": 4, "num_ro5_violations": 1}
+    )
     result = logic.ro5_breakdown(row)
     assert result["violations"] == 1
     by_label = {item["label"]: item["pass"] for item in result["items"]}
     assert by_label["logP ≤ 5"] is False
     assert by_label["MW ≤ 500"] is True
 
-    missing = logic.ro5_breakdown(pd.Series({"mw_freebase": None, "alogp": 2.0, "hbd": 1, "hba": 4}))
+    missing = logic.ro5_breakdown(
+        pd.Series({"mw_freebase": None, "alogp": 2.0, "hbd": 1, "hba": 4})
+    )
     assert missing["violations"] == 0
     assert missing["items"][0]["pass"] is None
 
@@ -132,7 +146,14 @@ def test_overview_metrics_respects_scope():
 
 # --- view modules import cleanly ---
 def test_view_modules_import():
-    for name in ("overview", "compound_library", "sar", "selectivity", "chemical_space", "data_quality"):
+    for name in (
+        "overview",
+        "compound_library",
+        "sar",
+        "selectivity",
+        "chemical_space",
+        "data_quality",
+    ):
         importlib.import_module(f"dashboard.views.{name}")
 
 
@@ -159,7 +180,9 @@ def test_data_access_against_warehouse():
     key = int(cat["compound_key"].iloc[0])
     assert {"target", "median_pchembl"}.issubset(data.compound_target_profile(con, key).columns)
     assert {"display_name", "xref_id", "url"}.issubset(data.compound_xrefs(con, key).columns)
-    assert {"ligand_code", "pdb_id"}.issubset(data.compound_pdb_entries(con, key).columns)
+    assert {"ligand_code", "pdb_id", "title", "method", "year", "resolution"}.issubset(
+        data.compound_pdb_entries(con, key).columns
+    )
     assert data.list_target_names(con)
     cfg = data.pipeline_config()
     assert cfg["chembl_version"] and cfg["min_confidence_score"] >= 0
