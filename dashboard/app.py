@@ -6,6 +6,8 @@ Run from the repo root (after building the warehouse with dbt):
 
 from pathlib import Path
 
+import base64
+
 import streamlit as st
 
 from dashboard import data
@@ -24,7 +26,11 @@ _ICON = str(_ASSETS / "icon.svg")
 _APPROVAL = ["all", "approved", "research"]
 
 st.set_page_config(page_title="SARVault", page_icon=_ICON, layout="wide")
-st.logo(_LOGO, icon_image=_ICON)
+
+
+def _logo_html(height: int = 54) -> str:
+    b64 = base64.b64encode(Path(_LOGO).read_bytes()).decode()
+    return f'<img src="data:image/svg+xml;base64,{b64}" height="{height}" style="display:block">'
 
 
 @st.cache_resource
@@ -70,11 +76,13 @@ except Exception as exc:  # warehouse missing or unbuilt
     )
     st.stop()
 
-# --- global scope (top right) ---
+# --- header: logo (top left) + scope (top right) ---
 header_left, header_right = st.columns([4, 1])
-header_left.caption(
-    "Interactive, read-only view over the dbt-modelled ChEMBL bioactivity warehouse"
-)
+with header_left:
+    st.markdown(_logo_html(), unsafe_allow_html=True)
+    st.caption(
+        "Interactive, read-only view over the dbt-modelled ChEMBL bioactivity warehouse"
+    )
 target_names = data.list_target_names(con)
 prev = st.session_state.get("scope", {})
 with header_right.popover("Scope"):

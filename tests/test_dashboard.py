@@ -123,6 +123,16 @@ def test_view_modules_import():
         importlib.import_module(f"dashboard.views.{name}")
 
 
+def test_compound_property_formatting_is_string():
+    from dashboard.views.compound_library import _fmt
+
+    assert _fmt(350.44) == "350.44"
+    assert _fmt("N") == "N"
+    assert _fmt(3) == "3"
+    assert _fmt(None) == "—"
+    assert _fmt(float("nan")) == "—"
+
+
 # --- data access against a real (fixture-built) warehouse ---
 _WAREHOUSE = Path(os.environ.get("DUCKDB_PATH", "warehouse.duckdb"))
 

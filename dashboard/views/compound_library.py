@@ -1,8 +1,9 @@
 """Compound library: filterable list + per-compound detail drill-down."""
 
+import base64
+
 import pandas as pd
 import streamlit as st
-import streamlit.components.v1 as components
 
 from dashboard import charts, chem, data, logic
 
@@ -33,6 +34,19 @@ _PROP_ROWS = [
     ("QED", "qed_weighted"),
     ("Max phase", "max_phase"),
 ]
+
+
+def _fmt(value) -> str:
+    if value is None or (isinstance(value, float) and pd.isna(value)):
+        return "—"
+    if isinstance(value, float):
+        return f"{value:.2f}"
+    return str(value)
+
+
+def _structure_html(svg: str) -> str:
+    b64 = base64.b64encode(svg.encode()).decode()
+    return f'<img src="data:image/svg+xml;base64,{b64}" width="320">'
 
 
 def render(con, scope):
@@ -88,11 +102,13 @@ def render(con, scope):
     with left:
         svg = chem.smiles_to_svg(row.get("canonical_smiles"))
         if svg:
-            components.html(svg, height=280)
+            st.markdown(_structure_html(svg), unsafe_allow_html=True)
         else:
             st.info("No structure available.")
-        props = [{"property": label, "value": row.get(col)} for label, col in _PROP_ROWS]
-        st.dataframe(pd.DataFrame(props), hide_index=True, width="stretch")
+        props = pd.DataFrame(
+            [{"property": label, "value": _fmt(row.get(col))} for label, col in _PROP_ROWS]
+        )
+        st.dataframe(props, hide_index=True, width="stretch")
     with right:
         st.markdown("**Per-target potency**")
         profile = data.compound_target_profile(con, int(row["compound_key"]))

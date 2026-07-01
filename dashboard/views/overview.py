@@ -18,7 +18,6 @@ The **Scope** selector (top right) narrows every page by target, approval status
 
 
 def render(con, scope):
-    st.subheader("Payload SAR Warehouse")
     st.write(
         "A layered warehouse over public **ChEMBL** bioactivity data, scoped to "
         "cytotoxic / tubulin-targeting compounds — the chemistry behind ADC payloads "
