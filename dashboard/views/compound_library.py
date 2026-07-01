@@ -82,11 +82,11 @@ def _detail(con, row, chosen):
     title = f"{chosen} — {name}" if name and str(name) != chosen else chosen
     suffix = " :green[· approved]" if bool(row["is_approved_drug"]) else ""
 
-    head_l, head_r = st.columns([3, 1])
-    head_l.markdown(f"### {title}{suffix}")
-    head_r.link_button("View on ChEMBL", _CHEMBL_URL.format(chosen))
+    st.markdown(f"### {title}{suffix}")
 
-    left, right = st.columns([3, 2])
+    # Structure-led split: molecule on the left, all physicochemical readouts
+    # (key metrics + slim property table) grouped together on the right.
+    left, right = st.columns([5, 7])
     with left:
         svg = chem.smiles_to_svg(row.get("canonical_smiles"))
         if svg:
@@ -94,35 +94,40 @@ def _detail(con, row, chosen):
         else:
             st.info("No structure available.")
     with right:
-        top = st.columns(2)
-        top[0].metric("MW", _mfmt(row["mw_freebase"], 0))
-        top[1].metric("logP", _mfmt(row["alogp"], 1))
-        bottom = st.columns(2)
-        bottom[0].metric("TPSA", _mfmt(row["psa"], 0))
-        bottom[1].metric("QED", _mfmt(row["qed_weighted"], 2))
+        metrics = st.columns(4)
+        metrics[0].metric("MW", _mfmt(row["mw_freebase"], 0))
+        metrics[1].metric("logP", _mfmt(row["alogp"], 1))
+        metrics[2].metric("TPSA", _mfmt(row["psa"], 0))
+        metrics[3].metric("QED", _mfmt(row["qed_weighted"], 2))
         slim = pd.DataFrame(
             [{"property": label, "value": _fmt(row.get(col))} for label, col in _SLIM_PROPS]
         )
         st.dataframe(slim, hide_index=True, width="stretch")
 
-    st.markdown("**Per-target potency**")
-    profile = data.compound_target_profile(con, int(row["compound_key"]))
-    if len(profile) == 1:
-        p = profile.iloc[0]
-        st.markdown(
-            f"**{p['target']}** — median pChEMBL {p['median_pchembl']:.2f} · "
-            f"max {p['max_pchembl']:.2f} · {int(p['n_measurements'])} measurement(s)"
-        )
-    else:
-        st.plotly_chart(charts.compound_potency_bar(profile), width="stretch")
-        st.dataframe(profile, hide_index=True, width="stretch")
-        if pd.notna(row["selectivity_index"]):
-            st.metric("Selectivity index (log10 fold)", round(float(row["selectivity_index"]), 2))
-
-    xrefs = data.compound_xrefs(con, int(row["compound_key"]))
-    if not xrefs.empty:
+    # Potency and external references sit side by side beneath the split.
+    pot_col, ref_col = st.columns(2)
+    with pot_col:
+        st.markdown("**Per-target potency**")
+        profile = data.compound_target_profile(con, int(row["compound_key"]))
+        if len(profile) == 1:
+            p = profile.iloc[0]
+            st.markdown(
+                f"**{p['target']}** — median pChEMBL {p['median_pchembl']:.2f} · "
+                f"max {p['max_pchembl']:.2f} · {int(p['n_measurements'])} measurement(s)"
+            )
+        else:
+            st.plotly_chart(charts.compound_potency_bar(profile), width="stretch")
+            st.dataframe(profile, hide_index=True, width="stretch")
+            if pd.notna(row["selectivity_index"]):
+                st.metric(
+                    "Selectivity index (log10 fold)",
+                    round(float(row["selectivity_index"]), 2),
+                )
+    with ref_col:
         st.markdown("**External references**")
-        parts = []
+        # ChEMBL always leads the list (replaces the old "View on ChEMBL" button).
+        parts = [f"[ChEMBL]({_CHEMBL_URL.format(chosen)})"]
+        xrefs = data.compound_xrefs(con, int(row["compound_key"]))
         for _, ref in xrefs.iterrows():
             extra = f" :gray[+{int(ref['n_refs']) - 1}]" if ref["n_refs"] > 1 else ""
             if pd.notna(ref["url"]) and ref["url"]:
