@@ -33,19 +33,31 @@ ChEMBL REST API
                 DuckDB  ⇄  Snowflake   (same models, swapped profile)
 ```
 
-## Quickstart (scaffold)
+## Quickstart
 
 ```bash
-# install dev tooling only
-pip install -e ".[dev]"
+# install everything
+pip install -e ".[dev,extract,dbt,dashboard]"
 
 # lint + test
 ruff check .
 pytest -q
 ```
 
-The pipeline stages (extract, dbt build, dashboard, orchestration) are added
-across milestones M1–M7 — see [`SPEC.md`](./SPEC.md) §12.
+End-to-end, from the repo root:
+
+```bash
+# 1. extract the scoped ChEMBL slice into raw/
+python -m extract.run
+
+# 2. build the warehouse (staging -> marts -> analytics) + run dbt tests
+dbt build --project-dir dbt --profiles-dir dbt/profiles
+
+# 3. launch the dashboard
+streamlit run dashboard/app.py
+```
+
+The pipeline stages are added across milestones M1–M7 — see [`SPEC.md`](./SPEC.md) §12.
 
 ## Project status
 

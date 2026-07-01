@@ -30,6 +30,8 @@ orchestration = [
 ]
 dashboard = [
   "streamlit>=1.36",
+  "plotly>=5.22",
+  "duckdb>=1.0",
 ]
 dev = [
   "pytest>=8.0",
@@ -42,7 +44,7 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
-packages = ["extract", "validation", "orchestration"]
+packages = ["extract", "validation", "orchestration", "dashboard", "dashboard.views"]
 
 [tool.ruff]
 line-length = 100

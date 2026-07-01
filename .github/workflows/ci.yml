@@ -13,15 +13,15 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
-      - name: Install dev dependencies
+      - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -e ".[dev,extract,dbt]"
+          pip install -e ".[dev,extract,dbt,dashboard]"
       - name: Lint
         run: ruff check .
-      - name: Test
-        run: pytest -q
       - name: dbt build (fixtures)
         env:
           SARVAULT_RAW_DIR: tests/fixtures/raw
         run: dbt build --project-dir dbt --profiles-dir dbt/profiles
+      - name: Test
+        run: pytest -q
