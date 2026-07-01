@@ -75,3 +75,18 @@ models:
         tests: [not_null]
       - name: xref_id
         tests: [not_null]
+
+  - name: mart_compound_pdb
+    description: "Co-crystal PDB entries per compound, resolved from PDBe ligand codes."
+    columns:
+      - name: compound_key
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_compound')
+                field: compound_key
+      - name: ligand_code
+        tests: [not_null]
+      - name: pdb_id
+        tests: [not_null]

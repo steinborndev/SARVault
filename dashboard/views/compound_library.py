@@ -5,8 +5,9 @@ import math
 
 import pandas as pd
 import streamlit as st
+import streamlit.components.v1 as components
 
-from dashboard import charts, chem, data, logic
+from dashboard import charts, chem, data, logic, viewer
 
 _CHEMBL_URL = "https://www.ebi.ac.uk/chembl/compound_report_card/{}/"
 
@@ -135,6 +136,23 @@ def _detail(con, row, chosen):
             else:
                 parts.append(f"{ref['display_name']} ({ref['xref_id']}){extra}")
         st.markdown(" · ".join(parts))
+
+    pdb = data.compound_pdb_entries(con, int(row["compound_key"]))
+    if not pdb.empty:
+        with st.expander(f"🧬 3D co-crystal structure (PDBe) — {len(pdb)} entries"):
+            pick = st.selectbox(
+                "PDB entry",
+                pdb["pdb_id"].tolist(),
+                format_func=str.upper,
+                key=f"pdb_pick_{chosen}",
+            )
+            ligand = pdb.loc[pdb["pdb_id"] == pick, "ligand_code"].iloc[0]
+            st.caption(
+                f"Ligand `{ligand}` bound in **{pick.upper()}** — "
+                f"co-crystal structure of the payload at its target · "
+                f"[open on PDBe](https://www.ebi.ac.uk/pdbe/entry/pdb/{pick})"
+            )
+            components.html(viewer.pdbe_molstar_html(pick), height=480)
 
     st.divider()
     st.markdown(f"**Lipinski Ro5** — {_ro5_line(row)}")

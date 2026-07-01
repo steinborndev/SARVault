@@ -133,3 +133,75 @@ def test_land_unichem_writes_provenance(tmp_path):
     landed = pd.read_parquet(out)
     for col in unichem.PROVENANCE_COLUMNS:
         assert col in landed.columns
+
+
+class _PdbeResponse:
+    def __init__(self, payload, status_code=200):
+        self._payload = payload
+        self.status_code = status_code
+
+    def raise_for_status(self):
+        if self.status_code >= 400:
+            raise AssertionError("raise_for_status should not fire on the 404 path")
+
+    def json(self):
+        return self._payload
+
+
+class _PdbeSession:
+    """Serves a fixed het-code -> PDB-id-list mapping; 404s unknown codes."""
+
+    def __init__(self, mapping):
+        self.mapping = mapping
+
+    def get(self, url, timeout=None):
+        code = url.rstrip("/").split("/")[-1]
+        if code not in self.mapping:
+            return _PdbeResponse({}, status_code=404)
+        return _PdbeResponse({code: self.mapping[code]})
+
+
+def test_resolve_pdb_entries_sorts_dedupes_and_lowercases():
+    from extract import pdbe
+
+    session = _PdbeSession({"AIN": ["2QQT", "1OXR", "1oxr"]})
+    df = pdbe.resolve_pdb_entries(["AIN"], session=session)
+    assert list(df["ligand_code"]) == ["AIN", "AIN"]
+    assert list(df["pdb_id"]) == ["1oxr", "2qqt"]
+
+
+def test_resolve_pdb_entries_caps_per_ligand():
+    from extract import pdbe
+
+    session = _PdbeSession({"AIN": [f"{i:04d}" for i in range(100)]})
+    df = pdbe.resolve_pdb_entries(["AIN"], session=session, max_per_ligand=10)
+    assert len(df) == 10
+
+
+def test_resolve_pdb_entries_skips_missing_component():
+    from extract import pdbe
+
+    df = pdbe.resolve_pdb_entries(["ZZZ"], session=_PdbeSession({}))
+    assert df.empty
+
+
+def test_land_pdbe_lands_xref_id_grain_with_provenance(tmp_path):
+    from extract import pdbe
+
+    df = pd.DataFrame({"ligand_code": ["AIN"], "pdb_id": ["1oxr"]})
+    out = pdbe.land_pdbe(df, "36", raw_dir=tmp_path)
+    landed = pd.read_parquet(out)
+    assert "xref_id" in landed.columns and "pdb_id" in landed.columns
+    assert "ligand_code" not in landed.columns  # renamed to xref_id at landing
+    for col in pdbe.PROVENANCE_COLUMNS:
+        assert col in landed.columns and landed[col].notna().all()
+
+
+def test_ligand_codes_from_raw_reads_unichem_pdbe(tmp_path):
+    from extract import pdbe
+
+    pd.DataFrame(
+        {"molecule_chembl_id": ["CHEMBLM1"], "source": ["pdbe"], "xref_id": ["AIN"]}
+    ).to_parquet(tmp_path / "raw_xref_unichem.parquet", index=False)
+    refs = pdbe.ligand_codes_from_raw(raw_dir=tmp_path)
+    assert list(refs["ligand_code"]) == ["AIN"]

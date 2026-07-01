@@ -66,6 +66,19 @@ def compound_xrefs(con: duckdb.DuckDBPyConnection, compound_key: int) -> pd.Data
     ).df()
 
 
+def compound_pdb_entries(con: duckdb.DuckDBPyConnection, compound_key: int) -> pd.DataFrame:
+    """Co-crystal PDB entries for one compound (its resolved PDBe structures)."""
+    return con.execute(
+        """
+        select distinct ligand_code, pdb_id
+        from main_analytics.mart_compound_pdb
+        where compound_key = ?
+        order by pdb_id
+        """,
+        [compound_key],
+    ).df()
+
+
 def list_target_names(con: duckdb.DuckDBPyConnection) -> list[str]:
     return (
         con.execute("select pref_name from main_marts.dim_target order by pref_name")
