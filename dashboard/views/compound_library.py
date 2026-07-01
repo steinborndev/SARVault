@@ -22,17 +22,12 @@ _LIST_COLS = [
     "num_ro5_violations",
 ]
 
-_PROP_ROWS = [
-    ("MW (freebase)", "mw_freebase"),
-    ("logP (AlogP)", "alogp"),
+_SLIM_PROPS = [
     ("HBA", "hba"),
     ("HBD", "hbd"),
-    ("PSA", "psa"),
     ("Rotatable bonds", "rotatable_bonds"),
     ("Aromatic rings", "aromatic_rings"),
-    ("Ro5 violations", "num_ro5_violations"),
     ("Ro3 pass", "ro3_pass"),
-    ("QED", "qed_weighted"),
     ("Max phase", "max_phase"),
 ]
 
@@ -48,13 +43,20 @@ def _fmt(value) -> str:
 def _num(value) -> str:
     if value is None or (isinstance(value, float) and pd.isna(value)):
         return "—"
-    fv = float(value)
-    return str(int(fv)) if fv.is_integer() else f"{fv:.1f}"
+    fv = round(float(value), 1)
+    return str(int(fv)) if fv == int(fv) else f"{fv:.1f}"
+
+
+def _mfmt(value, decimals: int) -> str:
+    return f"{value:.{decimals}f}" if pd.notna(value) else "—"
 
 
 def _structure_html(svg: str) -> str:
     b64 = base64.b64encode(svg.encode()).decode()
-    return f'<img src="data:image/svg+xml;base64,{b64}" width="320">'
+    return (
+        f'<img src="data:image/svg+xml;base64,{b64}" '
+        'style="width:100%; max-width:440px; background:#ffffff; border-radius:8px;">'
+    )
 
 
 def _int_max(series, default: int) -> int:
@@ -73,6 +75,57 @@ def _ro5_line(row) -> str:
     if pd.notna(official):
         line += f" · ChEMBL: {int(official)}"
     return line
+
+
+def _detail(con, row, chosen):
+    name = row.get("pref_name")
+    title = f"{chosen} — {name}" if name and str(name) != chosen else chosen
+    suffix = " :green[· approved]" if bool(row["is_approved_drug"]) else ""
+
+    head_l, head_r = st.columns([3, 1])
+    head_l.markdown(f"### {title}{suffix}")
+    head_r.link_button("View on ChEMBL", _CHEMBL_URL.format(chosen))
+
+    left, right = st.columns([3, 2])
+    with left:
+        svg = chem.smiles_to_svg(row.get("canonical_smiles"))
+        if svg:
+            st.markdown(_structure_html(svg), unsafe_allow_html=True)
+        else:
+            st.info("No structure available.")
+    with right:
+        top = st.columns(2)
+        top[0].metric("MW", _mfmt(row["mw_freebase"], 0))
+        top[1].metric("logP", _mfmt(row["alogp"], 1))
+        bottom = st.columns(2)
+        bottom[0].metric("TPSA", _mfmt(row["psa"], 0))
+        bottom[1].metric("QED", _mfmt(row["qed_weighted"], 2))
+        slim = pd.DataFrame(
+            [{"property": label, "value": _fmt(row.get(col))} for label, col in _SLIM_PROPS]
+        )
+        st.dataframe(slim, hide_index=True, width="stretch")
+
+    st.markdown("**Per-target potency**")
+    profile = data.compound_target_profile(con, int(row["compound_key"]))
+    if len(profile) == 1:
+        p = profile.iloc[0]
+        st.markdown(
+            f"**{p['target']}** — median pChEMBL {p['median_pchembl']:.2f} · "
+            f"max {p['max_pchembl']:.2f} · {int(p['n_measurements'])} measurement(s)"
+        )
+    else:
+        st.plotly_chart(charts.compound_potency_bar(profile), width="stretch")
+        st.dataframe(profile, hide_index=True, width="stretch")
+        if pd.notna(row["selectivity_index"]):
+            st.metric("Selectivity index (log10 fold)", round(float(row["selectivity_index"]), 2))
+
+    st.divider()
+    st.markdown(f"**Lipinski Ro5** — {_ro5_line(row)}")
+    st.caption(
+        "Ro5 is only weakly predictive here: ADC payloads / cytotoxics are "
+        "antibody-delivered rather than orally absorbed, and highly potent payloads "
+        "often violate it by design."
+    )
 
 
 def render(con, scope):
@@ -138,34 +191,4 @@ def render(con, scope):
     if st.session_state.get("inspect_compound") not in options:
         st.session_state["inspect_compound"] = options[0]
     chosen = st.selectbox("Compound", options, key="inspect_compound", label_visibility="collapsed")
-    row = disp[disp["molecule_chembl_id"] == chosen].iloc[0]
-
-    st.markdown(f"### {chosen} — {row['pref_name'] or chosen}")
-    st.link_button("View on ChEMBL", _CHEMBL_URL.format(chosen))
-
-    left, right = st.columns(2)
-    with left:
-        svg = chem.smiles_to_svg(row.get("canonical_smiles"))
-        if svg:
-            st.markdown(_structure_html(svg), unsafe_allow_html=True)
-        else:
-            st.info("No structure available.")
-        props = pd.DataFrame(
-            [{"property": label, "value": _fmt(row.get(col))} for label, col in _PROP_ROWS]
-        )
-        st.dataframe(props, hide_index=True, width="stretch")
-    with right:
-        st.markdown("**Per-target potency**")
-        profile = data.compound_target_profile(con, int(row["compound_key"]))
-        st.plotly_chart(charts.compound_potency_bar(profile), width="stretch")
-        st.dataframe(profile, hide_index=True, width="stretch")
-        if row["n_targets"] >= 2 and pd.notna(row["selectivity_index"]):
-            st.metric("Selectivity index (log10 fold)", round(float(row["selectivity_index"]), 2))
-
-    st.divider()
-    st.markdown(f"**Lipinski Ro5** — {_ro5_line(row)}")
-    st.caption(
-        "Ro5 is only weakly predictive here: ADC payloads / cytotoxics are "
-        "antibody-delivered rather than orally absorbed, and highly potent payloads "
-        "often violate it by design."
-    )
+    _detail(con, disp[disp["molecule_chembl_id"] == chosen].iloc[0], chosen)

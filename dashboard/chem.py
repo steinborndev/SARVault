@@ -1,7 +1,7 @@
 """Chemical structure rendering (SMILES -> 2D SVG) via RDKit."""
 
 
-def smiles_to_svg(smiles: str, width: int = 340, height: int = 260) -> str | None:
+def smiles_to_svg(smiles: str, width: int = 420, height: int = 340) -> str | None:
     """Render a SMILES string to a 2D structure SVG, or None if it cannot be parsed."""
     if not smiles:
         return None

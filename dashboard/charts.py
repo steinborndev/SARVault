@@ -58,7 +58,7 @@ def property_histogram(df, column: str = "mw_freebase") -> go.Figure:
 
 
 def compound_potency_bar(df) -> go.Figure:
-    """Per-target median potency for a single compound (its SAR fingerprint)."""
+    """Per-target median potency for a single compound; height scales with targets."""
     fig = px.bar(
         df,
         x="median_pchembl",
@@ -67,7 +67,11 @@ def compound_potency_bar(df) -> go.Figure:
         hover_data=["max_pchembl", "n_measurements"],
         labels={"median_pchembl": "median pChEMBL", "target": ""},
     )
-    fig.update_layout(yaxis={"categoryorder": "total ascending"}, height=260)
+    fig.update_layout(
+        yaxis={"categoryorder": "total ascending"},
+        height=max(140, 46 * len(df) + 70),
+        margin={"l": 10, "r": 10, "t": 10, "b": 40},
+    )
     return fig
 
 
