@@ -152,7 +152,7 @@ def _detail(con, row, chosen):
                 f"co-crystal structure of the payload at its target · "
                 f"[open on PDBe](https://www.ebi.ac.uk/pdbe/entry/pdb/{pick})"
             )
-            components.html(viewer.pdbe_molstar_html(pick), height=480)
+            components.html(viewer.pdbe_molstar_html(pick), height=960)
 
     st.divider()
     st.markdown(f"**Lipinski Ro5** — {_ro5_line(row)}")

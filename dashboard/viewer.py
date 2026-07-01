@@ -6,11 +6,11 @@ fetched client-side by the viewer from PDBe/RCSB, so this adds no server-side
 dependency — it is a browser embed dropped into ``st.components.v1.html``.
 """
 
-_PDBE_MOLSTAR_VERSION = "3.1.3"
+_PDBE_MOLSTAR_VERSION = "3.12.0"
 _CDN = f"https://cdn.jsdelivr.net/npm/pdbe-molstar@{_PDBE_MOLSTAR_VERSION}/build"
 
 
-def pdbe_molstar_html(pdb_id: str, height: int = 460) -> str:
+def pdbe_molstar_html(pdb_id: str, height: int = 920) -> str:
     """Return an HTML embed of the PDBe Mol* viewer for one PDB entry.
 
     The background is set to match the dark dashboard theme (#0e1117) and water

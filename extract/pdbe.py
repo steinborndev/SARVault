@@ -78,6 +78,18 @@ def ligand_codes_from_raw(raw_dir: Path | str = RAW_DIR) -> pd.DataFrame:
     return pd.concat(frames, ignore_index=True).drop_duplicates().reset_index(drop=True)
 
 
+def _pdb_id_of(item):
+    """Return the PDB id from an in_pdb list item.
+
+    The current PDBe in_pdb API returns one object per entry
+    (``{"pdb_id": ..., "ligand_type": ..., ...}``); older responses returned a
+    bare id string. Handle both.
+    """
+    if isinstance(item, dict):
+        return item.get("pdb_id")
+    return item
+
+
 def resolve_pdb_entries(
     ligand_codes,
     session=None,
@@ -86,10 +98,10 @@ def resolve_pdb_entries(
 ) -> pd.DataFrame:
     """Resolve each ligand (het) code to its PDB entries via the PDBe in_pdb API.
 
-    The endpoint returns ``{"<CODE>": ["1abc", ...]}``. Entries are lowercased,
-    de-duplicated, sorted and capped at ``max_per_ligand`` per code for bounded,
-    deterministic output. Missing components (404) are skipped. Returns columns:
-    ligand_code, pdb_id.
+    The endpoint returns ``{"<CODE>": [{"pdb_id": "1abc", ...}, ...]}``. PDB ids
+    are lowercased, de-duplicated, sorted and capped at ``max_per_ligand`` per
+    code for bounded, deterministic output. Missing components (404) are skipped.
+    Returns columns: ligand_code, pdb_id.
     """
     session = session or build_session()
     rows = []
@@ -99,7 +111,13 @@ def resolve_pdb_entries(
             continue
         response.raise_for_status()
         payload = response.json() or {}
-        pdb_ids = sorted({str(p).lower() for p in payload.get(code, [])})
+        pdb_ids = sorted(
+            {
+                str(pid).lower()
+                for pid in (_pdb_id_of(item) for item in payload.get(code, []))
+                if pid
+            }
+        )
         for pdb_id in pdb_ids[:max_per_ligand]:
             rows.append({"ligand_code": code, "pdb_id": pdb_id})
     return pd.DataFrame(rows, columns=["ligand_code", "pdb_id"])

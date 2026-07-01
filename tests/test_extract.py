@@ -161,19 +161,35 @@ class _PdbeSession:
         return _PdbeResponse({code: self.mapping[code]})
 
 
-def test_resolve_pdb_entries_sorts_dedupes_and_lowercases():
+def _in_pdb(pdb_ids):
+    """Build the dict-per-entry shape the current PDBe in_pdb API returns."""
+    return [
+        {"pdb_id": p, "ligand_type": "B", "ligand_total_number": 1, "ligand_distinct_number": 1}
+        for p in pdb_ids
+    ]
+
+
+def test_resolve_pdb_entries_extracts_pdb_id_from_dict_items():
+    from extract import pdbe
+
+    session = _PdbeSession({"DM5": _in_pdb(["198D", "1D12", "198d"])})
+    df = pdbe.resolve_pdb_entries(["DM5"], session=session)
+    assert set(df["pdb_id"]) == {"198d", "1d12"}  # deduped, lowercased
+    assert all("{" not in pid for pid in df["pdb_id"])  # no stringified dict leaks
+
+
+def test_resolve_pdb_entries_accepts_legacy_string_items():
     from extract import pdbe
 
     session = _PdbeSession({"AIN": ["2QQT", "1OXR", "1oxr"]})
     df = pdbe.resolve_pdb_entries(["AIN"], session=session)
-    assert list(df["ligand_code"]) == ["AIN", "AIN"]
     assert list(df["pdb_id"]) == ["1oxr", "2qqt"]
 
 
 def test_resolve_pdb_entries_caps_per_ligand():
     from extract import pdbe
 
-    session = _PdbeSession({"AIN": [f"{i:04d}" for i in range(100)]})
+    session = _PdbeSession({"AIN": _in_pdb([f"{i:04d}" for i in range(100)])})
     df = pdbe.resolve_pdb_entries(["AIN"], session=session, max_per_ligand=10)
     assert len(df) == 10
 
