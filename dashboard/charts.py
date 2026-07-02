@@ -50,6 +50,25 @@ def chemical_space_scatter(df, x: str = "mw_freebase", y: str = "alogp") -> go.F
     return fig
 
 
+def efficiency_scatter(df, metric: str, label: str) -> go.Figure:
+    """Ligand-efficiency metric vs. best-target potency, coloured by approval.
+
+    ``metric`` is a column such as 'ligand_efficiency' or 'lipophilic_efficiency';
+    points to the upper right are both potent and efficient.
+    """
+    plot_df = df.dropna(subset=["best_pchembl", metric])
+    fig = px.scatter(
+        plot_df,
+        x="best_pchembl",
+        y=metric,
+        color="is_approved_drug",
+        hover_data=["molecule_chembl_id", "heavy_atoms", "mw_freebase"],
+        labels={"best_pchembl": "best-target median pChEMBL", metric: label},
+    )
+    fig.update_layout(height=440)
+    return fig
+
+
 def property_histogram(df, column: str = "mw_freebase") -> go.Figure:
     """Overlaid histogram of a physicochemical property by approval status."""
     fig = px.histogram(df, x=column, color="is_approved_drug", barmode="overlay", nbins=40)

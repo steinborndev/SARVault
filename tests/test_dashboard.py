@@ -93,6 +93,12 @@ def test_smiles_to_svg_invalid_returns_none():
     assert chem.smiles_to_svg("") is None
 
 
+def test_heavy_atom_count():
+    assert chem.heavy_atom_count("CCO") == 3  # ethanol: C, C, O
+    assert chem.heavy_atom_count("not-a-smiles") is None
+    assert chem.heavy_atom_count("") is None
+
+
 # --- pure scope logic ---
 def _scope_fixtures():
     target_sar = pd.DataFrame(
@@ -142,6 +148,49 @@ def test_resolve_scope_keys_structure_only():
             target_sar, catalog, {"structure_only": True, "approval": "approved"}
         )
         == {1}
+    )
+
+
+def test_ligand_and_lipophilic_efficiency():
+    assert logic.ligand_efficiency(7.3, 20) == pytest.approx(1.37 * 7.3 / 20)
+    assert logic.ligand_efficiency(None, 20) is None
+    assert logic.ligand_efficiency(7.3, 0) is None
+    assert logic.ligand_efficiency(7.3, None) is None
+    assert logic.lipophilic_efficiency(7.0, 2.0) == pytest.approx(5.0)
+    assert logic.lipophilic_efficiency(7.0, None) is None
+
+
+def test_add_efficiency():
+    df = pd.DataFrame(
+        {
+            "compound_key": [1, 2],
+            "canonical_smiles": ["CCO", "bad"],
+            "best_pchembl": [6.0, 8.0],
+            "alogp": [1.5, None],
+        }
+    )
+    out = logic.add_efficiency(df, {"CCO": 20, "bad": None})
+    assert out.loc[0, "heavy_atoms"] == 20
+    assert out.loc[0, "ligand_efficiency"] == pytest.approx(1.37 * 6.0 / 20)
+    assert out.loc[0, "lipophilic_efficiency"] == pytest.approx(4.5)
+    # unparseable SMILES / missing logP -> NaN in the float column, no exception
+    assert pd.isna(out.loc[1, "ligand_efficiency"])
+    assert pd.isna(out.loc[1, "lipophilic_efficiency"])
+
+
+def test_efficiency_scatter_returns_figure():
+    df = pd.DataFrame(
+        {
+            "molecule_chembl_id": ["A", "B"],
+            "best_pchembl": [7.0, None],
+            "ligand_efficiency": [0.45, None],
+            "heavy_atoms": [21, 30],
+            "mw_freebase": [300.0, 420.0],
+            "is_approved_drug": [True, False],
+        }
+    )
+    assert isinstance(
+        charts.efficiency_scatter(df, "ligand_efficiency", "ligand efficiency"), go.Figure
     )
 
 

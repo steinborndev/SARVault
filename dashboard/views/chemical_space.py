@@ -3,8 +3,15 @@
 import streamlit as st
 
 from dashboard import charts, data, logic
+from dashboard.chem import heavy_atom_count
 
 _AXES = ["mw_freebase", "alogp", "psa", "qed_weighted", "rotatable_bonds"]
+
+
+@st.cache_data(show_spinner=False)
+def _hac_by_smiles(smiles: tuple[str, ...]) -> dict:
+    """Heavy-atom count per unique SMILES (cached; RDKit parse is the cost)."""
+    return {s: heavy_atom_count(s) for s in smiles}
 
 
 def render(con, scope):
@@ -24,3 +31,28 @@ def render(con, scope):
     st.caption(f"{len(chem)} compounds")
     st.plotly_chart(charts.chemical_space_scatter(chem, x_col, y_col), width="stretch")
     st.plotly_chart(charts.property_histogram(chem, x_col), width="stretch")
+
+    st.divider()
+    st.subheader("Ligand efficiency")
+    st.caption(
+        "LE = 1.37 × pChEMBL / heavy-atom count (potency per atom); "
+        "LLE = pChEMBL − logP (potency vs. lipophilicity). For ADC payloads, "
+        "high efficiency at high potency (upper right) is the sweet spot."
+    )
+    smiles = catalog[["compound_key", "canonical_smiles"]]
+    eff = logic.add_efficiency(
+        chem.merge(smiles, on="compound_key", how="left"),
+        _hac_by_smiles(tuple(sorted(smiles["canonical_smiles"].dropna().unique()))),
+    )
+    st.plotly_chart(
+        charts.efficiency_scatter(
+            eff, "ligand_efficiency", "ligand efficiency (kcal/mol per heavy atom)"
+        ),
+        width="stretch",
+    )
+    st.plotly_chart(
+        charts.efficiency_scatter(
+            eff, "lipophilic_efficiency", "lipophilic efficiency (pChEMBL − logP)"
+        ),
+        width="stretch",
+    )

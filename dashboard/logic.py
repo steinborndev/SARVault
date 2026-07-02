@@ -67,6 +67,40 @@ def ro5_breakdown(row):
     return {"items": items, "violations": violations}
 
 
+def ligand_efficiency(pchembl, heavy_atoms):
+    """Hopkins ligand efficiency (kcal/mol per heavy atom): 1.37 * pChEMBL / HAC.
+
+    Returns None when potency or heavy-atom count is missing or non-positive.
+    """
+    if _missing(pchembl) or _missing(heavy_atoms) or not heavy_atoms:
+        return None
+    return 1.37 * float(pchembl) / float(heavy_atoms)
+
+
+def lipophilic_efficiency(pchembl, logp):
+    """Lipophilic ligand efficiency: pChEMBL - logP (None if either is missing)."""
+    if _missing(pchembl) or _missing(logp):
+        return None
+    return float(pchembl) - float(logp)
+
+
+def add_efficiency(df, hac_by_smiles):
+    """Attach heavy_atoms, ligand_efficiency and lipophilic_efficiency columns.
+
+    ``hac_by_smiles`` maps canonical_smiles -> heavy-atom count (None if
+    unparseable). Requires columns: canonical_smiles, best_pchembl, alogp.
+    """
+    out = df.copy()
+    out["heavy_atoms"] = out["canonical_smiles"].map(hac_by_smiles)
+    out["ligand_efficiency"] = [
+        ligand_efficiency(p, h) for p, h in zip(out["best_pchembl"], out["heavy_atoms"])
+    ]
+    out["lipophilic_efficiency"] = [
+        lipophilic_efficiency(p, lp) for p, lp in zip(out["best_pchembl"], out["alogp"])
+    ]
+    return out
+
+
 def overview_metrics(target_sar, catalog, scope):
     """Headline metrics for the landing page, restricted to the current scope."""
     keys = resolve_scope_keys(target_sar, catalog, scope)
