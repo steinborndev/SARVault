@@ -11,7 +11,9 @@ Community Cloud container the file is therefore absent, so the app fetches it
 once at boot from a stable URL and caches it in the container filesystem:
 
 - `dashboard/data.ensure_warehouse()` downloads the file only if it is missing
-  **and** a URL is provided (via the `SARVAULT_WAREHOUSE_URL` secret/env).
+  **and** a URL is provided (via the `SARVAULT_WAREHOUSE_URL` secret/env). For a
+  private repo it also needs `SARVAULT_WAREHOUSE_TOKEN` and fetches via the
+  GitHub API; for a public repo the URL is fetched directly.
 - Local runs that already have a `warehouse.duckdb` are untouched — no URL, no
   download, existing behaviour.
 
@@ -51,7 +53,18 @@ https://github.com/Knusperftw/SARVault/releases/download/warehouse-v1/warehouse.
 
    ```toml
    SARVAULT_WAREHOUSE_URL = "https://github.com/Knusperftw/SARVault/releases/download/warehouse-v1/warehouse.duckdb"
+   # Private repo only: a token with read access to this repo's contents.
+   SARVAULT_WAREHOUSE_TOKEN = "github_pat_xxx"
    ```
+
+   For a **private** repo the browser download URL 404s for anonymous requests,
+   so `SARVAULT_WAREHOUSE_TOKEN` is required: the app then fetches the asset
+   through the GitHub API (`GET /repos/{owner}/{repo}/releases/tags/{tag}` →
+   asset id → `Accept: application/octet-stream`). Use a **fine-grained PAT**
+   scoped to just this repository with **Contents: Read-only** (or a classic
+   token with the `repo` scope). The token lives only in Streamlit's encrypted
+   secrets, never in git. For a **public** repo, omit the token — the URL is
+   fetched directly.
 
 5. **Deploy.** First boot installs deps and downloads the warehouse (a few
    minutes); subsequent loads are fast.

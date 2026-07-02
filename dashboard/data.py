@@ -14,26 +14,81 @@ def connect(db_path: str | None = None) -> duckdb.DuckDBPyConnection:
     return duckdb.connect(str(db_path or DEFAULT_DB), read_only=True)
 
 
-def ensure_warehouse(db_path: str | None = None, url: str | None = None) -> Path:
+def ensure_warehouse(
+    db_path: str | None = None, url: str | None = None, token: str | None = None
+) -> Path:
     """Ensure the warehouse file exists locally; fetch it from ``url`` if missing.
 
     On a fresh cloud deploy (e.g. Streamlit Community Cloud) the DuckDB file is
-    not tracked in git, so it is downloaded once from a stable URL — a GitHub
-    Release asset — and cached in the container filesystem. Local runs that
-    already have a warehouse are left untouched, and if no URL is provided the
-    caller surfaces the usual "warehouse missing" error.
+    not tracked in git, so it is downloaded once and cached in the container.
+    Local runs that already have a warehouse are left untouched, and if no URL is
+    provided the caller surfaces the usual "warehouse missing" error.
+
+    ``url`` is a GitHub Release asset browser URL. If ``token`` is set, the asset
+    is fetched authenticated via the GitHub API (required for private repos,
+    whose browser download URLs 404 for anonymous requests); otherwise it is
+    downloaded directly (public assets).
     """
     path = Path(db_path or DEFAULT_DB)
     if path.exists() or not url:
         return path
-    import urllib.request
-
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_suffix(path.suffix + ".part")
-    # URL comes from app config/secrets (a trusted GitHub Release asset), not user input.
-    urllib.request.urlretrieve(url, tmp)
+    if token:
+        _download_private_asset(url, token, tmp)
+    else:
+        import urllib.request
+
+        urllib.request.urlretrieve(url, tmp)  # public asset, no auth
     tmp.replace(path)
     return path
+
+
+def _parse_asset_url(browser_url: str) -> tuple[str, str, str, str]:
+    """Split a release asset browser URL into (owner, repo, tag, asset_name)."""
+    import re
+
+    m = re.match(
+        r"https://github\.com/([^/]+)/([^/]+)/releases/download/([^/]+)/(.+)$",
+        browser_url,
+    )
+    if not m:
+        raise ValueError(f"Unrecognized GitHub release asset URL: {browser_url}")
+    return m.group(1), m.group(2), m.group(3), m.group(4)
+
+
+def _download_private_asset(browser_url: str, token: str, dest: Path) -> None:
+    """Download a private-repo release asset via the GitHub API, streaming to disk.
+
+    Resolves the asset id for {tag}/{name}, then requests the API asset endpoint
+    with ``Accept: application/octet-stream``. GitHub answers with a 302 to a
+    signed storage URL on another host; ``requests`` drops the Authorization
+    header on that cross-host redirect (which the storage backend requires).
+    """
+    import requests
+
+    owner, repo, tag, name = _parse_asset_url(browser_url)
+    api = f"https://api.github.com/repos/{owner}/{repo}/releases"
+    auth = {"Authorization": f"Bearer {token}"}
+    rel = requests.get(
+        f"{api}/tags/{tag}",
+        headers={**auth, "Accept": "application/vnd.github+json"},
+        timeout=30,
+    )
+    rel.raise_for_status()
+    asset = next((a for a in rel.json().get("assets", []) if a["name"] == name), None)
+    if asset is None:
+        raise FileNotFoundError(f"Asset {name!r} not found in release {tag!r} of {owner}/{repo}")
+    with requests.get(
+        asset["url"],
+        headers={**auth, "Accept": "application/octet-stream"},
+        stream=True,
+        timeout=300,
+    ) as resp:
+        resp.raise_for_status()
+        with open(dest, "wb") as fh:
+            for chunk in resp.iter_content(chunk_size=1 << 20):
+                fh.write(chunk)
 
 
 def load_target_sar(con: duckdb.DuckDBPyConnection) -> pd.DataFrame:

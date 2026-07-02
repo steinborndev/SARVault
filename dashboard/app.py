@@ -55,6 +55,15 @@ def _warehouse_url() -> str | None:
     return url or os.environ.get("SARVAULT_WAREHOUSE_URL")
 
 
+def _warehouse_token() -> str | None:
+    """GitHub token for fetching the warehouse asset from a private repo."""
+    try:
+        tok = st.secrets.get("SARVAULT_WAREHOUSE_TOKEN")
+    except Exception:
+        tok = None
+    return tok or os.environ.get("SARVAULT_WAREHOUSE_TOKEN")
+
+
 def _scope():
     return st.session_state.get("scope", {})
 
@@ -84,7 +93,7 @@ def _data_quality_page():
 
 
 try:
-    data.ensure_warehouse(url=_warehouse_url())
+    data.ensure_warehouse(url=_warehouse_url(), token=_warehouse_token())
     con = _connection()
 except Exception as exc:  # warehouse missing or unbuilt
     st.error(

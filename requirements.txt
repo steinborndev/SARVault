@@ -8,3 +8,4 @@ duckdb>=1.0
 rdkit>=2023.9
 pandas>=2.0
 pyyaml>=6.0
+requests>=2.31

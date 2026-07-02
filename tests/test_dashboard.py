@@ -273,6 +273,15 @@ def test_ensure_warehouse_missing_without_url_no_error(tmp_path):
     assert not db.exists()
 
 
+def test_parse_asset_url():
+    owner, repo, tag, name = data._parse_asset_url(
+        "https://github.com/Knusperftw/SARVault/releases/download/warehouse-v1/warehouse.duckdb"
+    )
+    assert (owner, repo, tag, name) == ("Knusperftw", "SARVault", "warehouse-v1", "warehouse.duckdb")
+    with pytest.raises(ValueError):
+        data._parse_asset_url("https://example.com/not/a/release")
+
+
 # --- data access against a real (fixture-built) warehouse ---
 _WAREHOUSE = Path(os.environ.get("DUCKDB_PATH", "warehouse.duckdb"))
 
