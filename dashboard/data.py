@@ -227,10 +227,16 @@ def layer_counts(con: duckdb.DuckDBPyConnection) -> pd.DataFrame:
         "mart_compound_selectivity": "main_analytics.mart_compound_selectivity",
         "mart_chemical_space": "main_analytics.mart_chemical_space",
     }
-    rows = [
-        {"table": name, "rows": con.execute(f"select count(*) from {ref}").fetchone()[0]}
-        for name, ref in tables.items()
-    ]
+    rows = []
+    for name, ref in tables.items():
+        try:
+            n = con.execute(f"select count(*) from {ref}").fetchone()[0]
+        except Exception:
+            # A relation may be unreadable in a shipped snapshot (e.g. a staging
+            # view over raw Parquet not present in the deployment); skip it rather
+            # than failing the whole provenance page.
+            continue
+        rows.append({"table": name, "rows": n})
     return pd.DataFrame(rows)
 
 

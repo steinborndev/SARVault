@@ -282,6 +282,20 @@ def test_parse_asset_url():
         data._parse_asset_url("https://example.com/not/a/release")
 
 
+def test_layer_counts_skips_unreadable_relations():
+    # A shipped snapshot may lack some relations (e.g. staging views over absent
+    # raw files); layer_counts must return what it can without raising.
+    import duckdb
+
+    con = duckdb.connect(":memory:")
+    con.execute("create schema main_marts")
+    con.execute("create table main_marts.dim_compound as select 1 as compound_key")
+    out = data.layer_counts(con)  # other relations don't exist -> skipped, no error
+    assert "dim_compound" in set(out["table"])
+    assert int(out.loc[out["table"] == "dim_compound", "rows"].iloc[0]) == 1
+    assert "stg_activities" not in set(out["table"])
+
+
 # --- data access against a real (fixture-built) warehouse ---
 _WAREHOUSE = Path(os.environ.get("DUCKDB_PATH", "warehouse.duckdb"))
 

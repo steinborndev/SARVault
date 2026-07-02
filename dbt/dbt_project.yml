@@ -13,7 +13,10 @@ models:
   sarvault:
     staging:
       +schema: staging
-      +materialized: view
+      # Materialized as tables (not views) so the shipped warehouse.duckdb is
+      # self-contained: a view would re-read the raw Parquet at query time, which
+      # is absent in a deployment that ships only the .duckdb (e.g. Streamlit Cloud).
+      +materialized: table
     marts:
       +schema: marts
       +materialized: table
