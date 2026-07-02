@@ -23,3 +23,12 @@ def render(con, scope):
         hide_index=True,
         width="stretch",
     )
+
+    st.subheader("Selectivity matrix")
+    sar = logic.scoped_target_sar(target_sar, scope, keys)
+    heat = sar[sar["compound_key"].isin(multi["compound_key"])]
+    st.plotly_chart(charts.sar_heatmap(heat), width="stretch")
+    st.caption(
+        "Median pChEMBL per target for the most potent multi-target compounds — "
+        "a single bright cell reads as selective, several as promiscuous."
+    )

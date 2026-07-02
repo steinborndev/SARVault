@@ -30,6 +30,16 @@ def test_sar_ranking_bar_returns_figure():
     assert isinstance(charts.sar_ranking_bar(_sar_df()), go.Figure)
 
 
+def test_sar_heatmap_returns_figure():
+    assert isinstance(charts.sar_heatmap(_sar_df()), go.Figure)
+    # empty scope must not raise
+    assert isinstance(charts.sar_heatmap(_sar_df().iloc[0:0]), go.Figure)
+
+
+def test_target_potency_violin_returns_figure():
+    assert isinstance(charts.target_potency_violin(_sar_df()), go.Figure)
+
+
 def test_compound_potency_bar_returns_figure():
     df = pd.DataFrame(
         {

@@ -57,6 +57,55 @@ def property_histogram(df, column: str = "mw_freebase") -> go.Figure:
     return fig
 
 
+def sar_heatmap(df, top_n: int = 30) -> go.Figure:
+    """Compound × target median-pChEMBL heatmap for the top-N compounds.
+
+    Compounds are ranked by their best (max) median potency across the in-scope
+    targets. The pivot leaves gaps where a compound was not measured against a
+    target; those read as blank cells. One bright cell = selective, several =
+    promiscuous.
+    """
+    if df.empty:
+        return go.Figure()
+    ranked = df.groupby("molecule_chembl_id")["median_pchembl"].max().sort_values(ascending=False)
+    top_ids = ranked.head(top_n).index.tolist()
+    wide = (
+        df[df["molecule_chembl_id"].isin(top_ids)]
+        .pivot_table(
+            index="molecule_chembl_id",
+            columns="target_pref_name",
+            values="median_pchembl",
+            aggfunc="max",
+        )
+        .reindex(top_ids)
+    )
+    fig = px.imshow(
+        wide,
+        color_continuous_scale="Viridis",
+        aspect="auto",
+        labels={"x": "target", "y": "compound", "color": "median pChEMBL"},
+    )
+    fig.update_layout(
+        height=max(360, 22 * len(top_ids) + 120),
+        margin={"l": 10, "r": 10, "t": 10, "b": 40},
+    )
+    return fig
+
+
+def target_potency_violin(df) -> go.Figure:
+    """Distribution (violin + inner box) of per-compound median pChEMBL per target."""
+    fig = px.violin(
+        df,
+        x="target_pref_name",
+        y="median_pchembl",
+        box=True,
+        points=False,
+        labels={"target_pref_name": "target", "median_pchembl": "median pChEMBL"},
+    )
+    fig.update_layout(height=420, margin={"l": 10, "r": 10, "t": 10, "b": 40})
+    return fig
+
+
 def compound_potency_bar(df) -> go.Figure:
     """Per-target median potency for a single compound; height scales with targets."""
     fig = px.bar(

@@ -15,6 +15,12 @@ def render(con, scope):
         st.info("No data in the current scope.")
         return
 
+    st.subheader("Potency landscape across targets")
+    st.plotly_chart(charts.target_potency_violin(sar), width="stretch")
+    st.caption("Each violin is the distribution of per-compound median pChEMBL for one target.")
+
+    st.divider()
+    st.subheader("Rank compounds for one target")
     targets = sorted(sar["target_pref_name"].unique())
     selected = st.selectbox("Target", targets)
     max_meas = int(sar["n_measurements"].max())
