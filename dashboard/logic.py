@@ -20,7 +20,7 @@ def resolve_scope_keys(target_sar, catalog, scope):
     min_p = scope.get("min_pchembl") or 0
     if min_p > 0:
         cat = cat[cat["best_pchembl"].fillna(-1) >= min_p]
-    if scope.get("structure_only"):
+    if scope.get("structure_only") and "has_pdb" in cat.columns:
         cat = cat[cat["has_pdb"].fillna(False)]
     return set(cat["compound_key"])
 

@@ -194,6 +194,14 @@ def test_efficiency_scatter_returns_figure():
     )
 
 
+def test_resolve_scope_keys_structure_only_missing_column():
+    # A warehouse built before has_pdb existed must not crash the toggle; the
+    # structure filter is simply skipped (graceful degradation).
+    target_sar, catalog = _scope_fixtures()
+    stale = catalog.drop(columns=["has_pdb"])
+    assert logic.resolve_scope_keys(target_sar, stale, {"structure_only": True}) == {1, 2, 3}
+
+
 def test_ro5_breakdown():
     row = pd.Series(
         {"mw_freebase": 451.0, "alogp": 6.9, "hbd": 1, "hba": 4, "num_ro5_violations": 1}

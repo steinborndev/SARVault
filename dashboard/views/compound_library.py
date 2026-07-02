@@ -255,8 +255,10 @@ def render(con, scope):
 
     disp = view.sort_values("best_pchembl", ascending=False).reset_index(drop=True)
     st.caption(f"{len(disp)} compounds — click a row to inspect it")
+    # Tolerate a warehouse built before has_pdb existed: only show present columns.
+    list_cols = [c for c in _LIST_COLS if c in disp.columns]
     event = st.dataframe(
-        disp[_LIST_COLS],
+        disp[list_cols],
         hide_index=True,
         width="stretch",
         column_config=_list_column_config(),
