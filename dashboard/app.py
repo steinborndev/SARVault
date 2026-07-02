@@ -8,11 +8,18 @@ from pathlib import Path
 
 import base64
 import os
+import sys
 
-import streamlit as st
+# When launched as `streamlit run dashboard/app.py` (e.g. on Streamlit Community
+# Cloud, where this package isn't pip-installed), the entrypoint's own directory
+# is on sys.path but the repo root isn't — put it there before the first-party
+# imports below so `dashboard` and `extract` resolve.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from dashboard import data
-from dashboard.views import (
+import streamlit as st  # noqa: E402
+
+from dashboard import data  # noqa: E402
+from dashboard.views import (  # noqa: E402
     chemical_space,
     compound_library,
     data_quality,
