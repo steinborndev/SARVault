@@ -32,3 +32,9 @@ vars:
   # the real-data profile (scripts/profile_sar.py): T>=0.75 & |dpChEMBL|>=1.0.
   cliff_min_tanimoto: 0.75
   cliff_min_delta_pchembl: 1.0
+  # Data-observability anomaly floors/ceilings (dbt/tests/assert_*). Defaults are sized
+  # for the CI fixture; production overrides them to realistic volumes/tolerances.
+  anomaly_min_rows: 3            # per-layer row-count floor
+  anomaly_max_null_rate: 0.20   # ceiling on canonical_smiles null rate in dim_compound
+  anomaly_pchembl_mean_low: 3.0  # pChEMBL mean plausibility band (lower)
+  anomaly_pchembl_mean_high: 10.0  # pChEMBL mean plausibility band (upper)

@@ -26,7 +26,11 @@ jobs:
       - name: Lint
         run: ruff check .
       - name: dbt build (fixtures)
+        # Includes the data-observability anomaly guards (dbt/tests/assert_*.sql).
         run: dbt build --project-dir dbt --profiles-dir dbt/profiles
+      - name: dbt source freshness (raw layer)
+        # Reports staleness of every raw source from its _fetch_ts provenance stamp.
+        run: dbt source freshness --project-dir dbt --profiles-dir dbt/profiles
       - name: dbt parse (orchestration manifest)
         # Generates dbt/target/manifest.json so dagster-dbt can load the asset
         # graph at import time (required before the Dagster step and pytest).
@@ -39,3 +43,41 @@ jobs:
         run: dagster job execute -j sarvault_transform -m orchestration.definitions
       - name: Test
         run: pytest -q
+
+  docs:
+    # Publish the dbt docs site (model descriptions + full lineage graph) to GitHub
+    # Pages on every push to main. One-time setup: repo Settings > Pages > Source =
+    # "GitHub Actions". Skipped on PRs and forks (needs the Pages environment).
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    env:
+      SARVAULT_RAW_DIR: ${{ github.workspace }}/tests/fixtures/raw
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[extract,dbt]"
+      - name: Build warehouse + generate static docs site
+        run: |
+          dbt build --project-dir dbt --profiles-dir dbt/profiles
+          dbt docs generate --static --project-dir dbt --profiles-dir dbt/profiles
+          mkdir -p site
+          cp dbt/target/static_index.html site/index.html
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

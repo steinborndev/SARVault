@@ -2,6 +2,8 @@
 
 [![CI](https://github.com/Knusperftw/SARVault/actions/workflows/ci.yml/badge.svg)](https://github.com/Knusperftw/SARVault/actions/workflows/ci.yml)
 
+📚 **[Data docs & lineage](https://knusperftw.github.io/SARVault/)** (dbt docs, published from CI)
+
 A reproducible, layered data warehouse over the public **ChEMBL** bioactivity
 database, scoped to **cytotoxic / tubulin-targeting compounds** — the chemical
 space behind antibody–drug-conjugate (ADC) payloads and classical
@@ -146,6 +148,25 @@ window. To run the demo locally:
 python tests/fixtures/build_raw_v2.py          # (re)generate the v2 delta fixture
 pytest tests/test_snapshot.py -q               # incremental + SCD2 across two releases
 ```
+
+## Data observability
+
+Three layers of "is the data right *today*?" run in CI:
+
+- **Source freshness.** Every raw extract stamps an ISO-8601 `_fetch_ts`; `dbt source
+  freshness` measures the staleness of all nine raw sources against a batch-refresh
+  cadence, so a forgotten refresh surfaces as a warning rather than silently serving old
+  data.
+- **Anomaly guards.** Three singular tests (`dbt/tests/assert_*.sql`) fail the build on a
+  broken pipeline rather than bad numbers: a per-layer **row-count floor** (catches a
+  silently-empty extract), a **null-rate ceiling** on `canonical_smiles` (catches a
+  degraded structure layer), and a **pChEMBL mean band** (catches a unit error or bad
+  merge). Thresholds are dbt vars, sized for CI and raised in production.
+  `tests/test_observability.py` proves they fire by building against a seeded bad fixture
+  (`tests/fixtures/build_raw_bad.py`) and asserting each one fails.
+- **Published docs + lineage.** CI generates the dbt docs site (model descriptions and
+  the full lineage graph) and deploys it to GitHub Pages:
+  **[knusperftw.github.io/SARVault](https://knusperftw.github.io/SARVault/)**.
 
 ## Data provenance & license
 
