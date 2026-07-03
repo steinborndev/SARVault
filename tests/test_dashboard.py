@@ -236,6 +236,43 @@ def test_preselect_first_row():
     assert "lib_rows" in state and state["lib_rows"]["selection"]["rows"] == [3]
 
 
+def test_step_selection_walks_and_clamps():
+    state = {"m": {"selection": {"rows": [10]}}}
+    logic.step_selection(state, "m", 1, 68)
+    assert state["m"]["selection"]["rows"] == [11]
+    logic.step_selection(state, "m", -1, 68)
+    assert state["m"]["selection"]["rows"] == [10]
+
+    # Clamp at both ends rather than wrapping.
+    state["m"] = {"selection": {"rows": [0]}}
+    logic.step_selection(state, "m", -1, 68)
+    assert state["m"]["selection"]["rows"] == [0]
+    state["m"] = {"selection": {"rows": [67]}}
+    logic.step_selection(state, "m", 1, 68)
+    assert state["m"]["selection"]["rows"] == [67]
+
+    # Absent key defaults to row 0; an empty table is a safe no-op.
+    empty = {}
+    logic.step_selection(empty, "m", 1, 68)
+    assert empty["m"]["selection"]["rows"] == [1]
+    logic.step_selection({}, "m", 1, 0)  # no rows -> no crash
+
+
+def test_smiles_to_svg_scaffold_aligned_and_highlighted():
+    scaffold = "c1ccc(-c2ccccc2)cc1"  # biphenyl core
+    member = "Cc1ccc(-c2ccc(Cl)cc2)cc1"  # substituted members share the core
+    aligned = chem.smiles_to_svg(
+        member, scaffold_smiles=scaffold, align_to_scaffold=True, highlight_scaffold=True
+    )
+    assert aligned and "<svg" in aligned
+
+    # A scaffold the member does not contain must not break rendering (plain fallback).
+    fallback = chem.smiles_to_svg(
+        member, scaffold_smiles="C1CCCCC1CCCC", align_to_scaffold=True, highlight_scaffold=True
+    )
+    assert fallback and "<svg" in fallback
+
+
 def test_overview_metrics_respects_scope():
     target_sar, catalog = _scope_fixtures()
     all_m = logic.overview_metrics(target_sar, catalog, {})

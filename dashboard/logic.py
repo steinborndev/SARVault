@@ -220,3 +220,19 @@ def preselect_first_row(state, key: str) -> None:
     """
     if key not in state:
         state[key] = {"selection": {"rows": [0], "columns": [], "cells": []}}
+
+
+def step_selection(state, key: str, delta: int, n: int) -> None:
+    """Move a single-row ``st.dataframe`` selection by ``delta``, clamped to [0, n-1].
+
+    Used by the Chemical Series prev/next controls to walk the member table without a
+    row click. Runs as a button ``on_click`` callback — i.e. *before* the dataframe is
+    re-instantiated on the ensuing rerun — so writing the selection here is picked up by
+    the widget, the same mechanism ``preselect_first_row`` relies on. ``state`` is any
+    mapping (``st.session_state`` at runtime, a plain dict in tests).
+    """
+    if n <= 0:
+        return
+    current = state.get(key, {}).get("selection", {}).get("rows") or [0]
+    new_row = min(max(current[0] + delta, 0), n - 1)
+    state[key] = {"selection": {"rows": [new_row], "columns": [], "cells": []}}

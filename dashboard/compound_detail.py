@@ -111,8 +111,24 @@ def _analog_column_config():
     }
 
 
-def render(con, row, chosen, fingerprints=None, catalog=None, highlight_smarts=None):
-    """Render the full compound detail card for ``row`` (identified by ``chosen``)."""
+def render(
+    con,
+    row,
+    chosen,
+    fingerprints=None,
+    catalog=None,
+    highlight_smarts=None,
+    scaffold_smiles=None,
+    align_to_scaffold=False,
+    highlight_scaffold=False,
+):
+    """Render the full compound detail card for ``row`` (identified by ``chosen``).
+
+    When a ``scaffold_smiles`` is supplied (Chemical Series page), the structure can be
+    oriented to that shared scaffold (``align_to_scaffold``) and the core subtly marked
+    (``highlight_scaffold``); the Compound Library passes neither, so its depiction is
+    unchanged.
+    """
     name = row.get("pref_name")
     has_name = isinstance(name, str) and name.strip() and name != chosen
     title = f"{chosen} — {name}" if has_name else chosen
@@ -122,7 +138,13 @@ def render(con, row, chosen, fingerprints=None, catalog=None, highlight_smarts=N
 
     left, right = st.columns([5, 7])
     with left:
-        svg = chem.smiles_to_svg(row.get("canonical_smiles"), highlight_smarts=highlight_smarts)
+        svg = chem.smiles_to_svg(
+            row.get("canonical_smiles"),
+            highlight_smarts=highlight_smarts,
+            scaffold_smiles=scaffold_smiles,
+            align_to_scaffold=align_to_scaffold,
+            highlight_scaffold=highlight_scaffold,
+        )
         if svg:
             st.markdown(_structure_html(svg), unsafe_allow_html=True)
         else:

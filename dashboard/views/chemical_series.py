@@ -152,7 +152,18 @@ def render(con, scope):
     member = members.iloc[midx]
 
     st.divider()
-    _member_context(member, midx, members, row)
+    _member_context(member, midx, members, row, members_key)
+
+    dcol = st.columns([1, 1, 4])
+    align = dcol[0].toggle(
+        "Align to scaffold", value=True, key="series_align",
+        help="Draw every member in the scaffold's orientation, so the shared core stays "
+        "fixed and only the substituents move as you step through the series.",
+    )
+    highlight = dcol[1].toggle(
+        "Highlight core", value=False, key="series_highlight",
+        help="Wash the shared scaffold with a subtle tint so substituent changes stand out.",
+    )
 
     detail_row = data.compound_row(con, member["molecule_chembl_id"])
     if detail_row is None:
@@ -164,23 +175,39 @@ def render(con, scope):
         member["molecule_chembl_id"],
         fingerprints=data.load_fingerprints(con),
         catalog=data.load_compound_catalog(con),
+        scaffold_smiles=row["murcko_scaffold_smiles"],
+        align_to_scaffold=align,
+        highlight_scaffold=highlight,
     )
 
 
-def _member_context(member, idx, members, series_row):
-    """Where this compound sits within its scaffold series (rank + Δ to series stats)."""
+def _member_context(member, idx, members, series_row, members_key):
+    """Where this compound sits within its scaffold series (rank + Δ to series stats).
+
+    The prev/next buttons walk the member table (potency order) without a row click,
+    by moving the dataframe's selection via ``logic.step_selection`` — pairing with the
+    scaffold-aligned depiction so the core stays fixed as you step through substituents.
+    """
     best = member["best_pchembl"]
     measured = int(members["best_pchembl"].notna().sum())
-    cols = st.columns(3)
+    n = len(members)
+    cols = st.columns([3, 1, 1, 4, 4], vertical_alignment="center")
+    # members are sorted by best_pchembl desc (nulls last), so idx+1 is the rank.
+    rank = f"#{idx + 1} of {measured}" if pd.notna(best) else "—"
+    cols[0].metric("Potency rank in series", rank)
+    cols[1].button(
+        "◀", key=f"prev_{members_key}", type="primary", width="stretch",
+        disabled=idx <= 0, help="Previous (more potent) member",
+        on_click=logic.step_selection, args=(st.session_state, members_key, -1, n),
+    )
+    cols[2].button(
+        "▶", key=f"next_{members_key}", type="primary", width="stretch",
+        disabled=idx >= n - 1, help="Next (less potent) member",
+        on_click=logic.step_selection, args=(st.session_state, members_key, 1, n),
+    )
     if pd.notna(best):
-        # members are sorted by best_pchembl desc (nulls last), so idx+1 is the rank.
-        cols[0].metric("Potency rank in series", f"#{idx + 1} of {measured}")
-        cols[1].metric(
+        cols[3].metric(
             "Δ to series best", f"{best - series_row['max_pchembl']:+.2f}",
             help="This compound's best pChEMBL minus the series' most potent",
         )
-        cols[2].metric(
-            "Δ to series median", f"{best - series_row['median_pchembl']:+.2f}"
-        )
-    else:
-        cols[0].metric("Potency rank in series", "—", "no activity data")
+        cols[4].metric("Δ to series median", f"{best - series_row['median_pchembl']:+.2f}")
