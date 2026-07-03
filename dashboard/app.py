@@ -6,7 +6,6 @@ Run from the repo root (after building the warehouse with dbt):
 
 from pathlib import Path
 
-import base64
 import os
 import sys
 
@@ -18,7 +17,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import streamlit as st  # noqa: E402
 
-from dashboard import data, scope  # noqa: E402
+from dashboard import branding, data, scope  # noqa: E402
 from dashboard.views import (  # noqa: E402
     activity_cliffs,
     chemical_series,
@@ -31,22 +30,9 @@ from dashboard.views import (  # noqa: E402
 )
 
 _ASSETS = Path(__file__).resolve().parents[1] / "assets"
-_LOGO = str(_ASSETS / "logo.svg")
 _ICON = str(_ASSETS / "icon.svg")
 
 st.set_page_config(page_title="SARVault", page_icon=_ICON, layout="wide")
-
-
-def _logo_html(height: int = 84) -> str:
-    b64 = base64.b64encode(Path(_LOGO).read_bytes()).decode()
-    # A bare, flush-left <img>. The previous width:100% flex wrapper left the icon
-    # inset from the content edge, so it didn't line up with the text below it;
-    # display:block + margin:0 pins the icon's left edge to the container's
-    # content-left, level with the subtitle and page body.
-    return (
-        f'<img src="data:image/svg+xml;base64,{b64}" height="{height}" '
-        'style="display:block;margin:0">'
-    )
 
 
 @st.cache_resource
@@ -123,7 +109,7 @@ except Exception as exc:  # warehouse missing or unbuilt
 target_names = data.list_target_names(con)
 logo_col, scope_col = st.columns([11, 1], vertical_alignment="top")
 with logo_col:
-    st.markdown(_logo_html(), unsafe_allow_html=True)
+    st.markdown(branding.logo_html(), unsafe_allow_html=True)
 with scope_col:
     scope.render(target_names)
 
