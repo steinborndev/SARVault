@@ -70,3 +70,15 @@ models:
     columns:
       - name: molecule_chembl_id
         tests: [unique, not_null]
+
+  - name: stg_compound_xref
+    description: "ChEMBL molecule cross_references exploded to one row per (compound, reference)."
+
+  - name: stg_compound_xref_unichem
+    description: "UniChem bulk cross-references, scoped to our compounds by the extract (one row per reference)."
+
+  - name: stg_pdbe_structure
+    description: "PDBe in_pdb resolution: one row per (ligand code, PDB entry) for compounds with a co-crystal structure."
+
+  - name: stg_pdbe_summary
+    description: "PDBe entry metadata: one row per PDB id (title, experimental method, year, resolution)."
