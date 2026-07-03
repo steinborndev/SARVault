@@ -38,7 +38,7 @@ _APPROVAL = ["all", "approved", "research"]
 st.set_page_config(page_title="SARVault", page_icon=_ICON, layout="wide")
 
 
-def _logo_html(height: int = 54) -> str:
+def _logo_html(height: int = 84) -> str:
     b64 = base64.b64encode(Path(_LOGO).read_bytes()).decode()
     return f'<img src="data:image/svg+xml;base64,{b64}" height="{height}" style="display:block">'
 
@@ -118,7 +118,8 @@ header_left, header_right = st.columns([12, 1])
 with header_left:
     st.markdown(_logo_html(), unsafe_allow_html=True)
     st.caption(
-        "Interactive, read-only view over the dbt-modelled ChEMBL bioactivity warehouse"
+        "Structure–activity intelligence for ADC-payload & cytotoxic chemistry — "
+        "similarity, scaffolds and activity cliffs over a reproducible ChEMBL warehouse."
     )
 target_names = data.list_target_names(con)
 prev = st.session_state.get("scope", {})

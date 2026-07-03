@@ -39,6 +39,7 @@ def render(con, scope):
     row2[1].metric("Multi-target compounds", metrics["multi_target"])
     row2[2].metric("Approved drugs", metrics["approved"])
 
+    st.divider()
     st.subheader("Per-target overview")
     summary = data.target_summary(con)
     targets = (scope or {}).get("targets")
@@ -46,6 +47,7 @@ def render(con, scope):
         summary = summary[summary["target"].isin(targets)]
     st.dataframe(summary, hide_index=True, width="stretch")
 
+    st.divider()
     st.markdown(_GUIDE)
     st.caption(
         "Source: ChEMBL (EMBL-EBI), released under CC BY-SA. Read-only view over the "

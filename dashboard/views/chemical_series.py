@@ -126,6 +126,7 @@ def render(con, scope):
             f"[{row['top_compound']}]({_CHEMBL_URL.format(row['top_compound'])})"
         )
 
+    st.divider()
     st.markdown("**Member compounds** — click a row to inspect it")
     members = data.scaffold_members(con, int(row["scaffold_key"]))
     if members.empty:

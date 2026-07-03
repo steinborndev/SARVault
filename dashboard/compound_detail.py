@@ -114,7 +114,8 @@ def _analog_column_config():
 def render(con, row, chosen, fingerprints=None, catalog=None, highlight_smarts=None):
     """Render the full compound detail card for ``row`` (identified by ``chosen``)."""
     name = row.get("pref_name")
-    title = f"{chosen} — {name}" if name and str(name) != chosen else chosen
+    has_name = isinstance(name, str) and name.strip() and name != chosen
+    title = f"{chosen} — {name}" if has_name else chosen
     suffix = " :green[· approved]" if bool(row.get("is_approved_drug")) else ""
 
     st.markdown(f"### {title}{suffix}")

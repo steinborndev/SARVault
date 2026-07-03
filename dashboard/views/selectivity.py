@@ -24,6 +24,7 @@ def render(con, scope):
         width="stretch",
     )
 
+    st.divider()
     st.subheader("Selectivity matrix")
     sar = logic.scoped_target_sar(target_sar, scope, keys)
     heat = sar[sar["compound_key"].isin(multi["compound_key"])]

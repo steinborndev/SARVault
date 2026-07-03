@@ -115,6 +115,7 @@ def render(con, scope):
 
     st.plotly_chart(charts.cliff_scatter(view), width="stretch")
 
+    st.divider()
     # SALI-ranked table (identical-fp pairs, with null SALI, sort last).
     ranked = view.sort_values("sali", ascending=False, na_position="last").reset_index(drop=True)
     ranked["pair"] = ranked["molecule_chembl_id_a"] + " ⇄ " + ranked["molecule_chembl_id_b"]

@@ -122,19 +122,16 @@ def render(con, scope):
     if disp.empty:
         return
 
+    # Selection is driven purely by clicking a row; default to the top compound.
     selected_rows = event.selection.rows
-    if selected_rows and selected_rows[0] < len(disp):
-        st.session_state["inspect_compound"] = disp.iloc[selected_rows[0]]["molecule_chembl_id"]
+    idx = selected_rows[0] if selected_rows and selected_rows[0] < len(disp) else 0
+    chosen = disp.iloc[idx]["molecule_chembl_id"]
 
-    st.subheader("Inspect a compound")
-    options = disp["molecule_chembl_id"].tolist()
-    if st.session_state.get("inspect_compound") not in options:
-        st.session_state["inspect_compound"] = options[0]
-    chosen = st.selectbox("Compound", options, key="inspect_compound", label_visibility="collapsed")
+    st.divider()
     fingerprints = data.load_fingerprints(con)
     compound_detail.render(
         con,
-        disp[disp["molecule_chembl_id"] == chosen].iloc[0],
+        disp.iloc[idx],
         chosen,
         fingerprints=fingerprints,
         catalog=catalog,

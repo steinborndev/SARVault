@@ -48,6 +48,7 @@ def render(con, scope):
         x_col = col_x.selectbox("X axis", _AXES, index=0)
         y_col = col_y.selectbox("Y axis", _AXES, index=1)
         st.plotly_chart(charts.chemical_space_scatter(chem, x_col, y_col), width="stretch")
+        st.divider()
         st.plotly_chart(charts.property_histogram(chem, x_col), width="stretch")
 
     st.divider()
@@ -68,6 +69,7 @@ def render(con, scope):
         ),
         width="stretch",
     )
+    st.divider()
     st.plotly_chart(
         charts.efficiency_scatter(
             eff, "lipophilic_efficiency", "lipophilic efficiency (pChEMBL − logP)"
