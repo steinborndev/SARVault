@@ -14,8 +14,9 @@ full design.
 
 It demonstrates ingestion from a real external REST API (pagination,
 idempotency, provenance), a medallion-style dbt transformation layer, a
-documented dimensional model, and a warehouse that runs on both **DuckDB**
-(local / CI) and **Snowflake** (cloud) from the same dbt models.
+documented dimensional model, and a warehouse that runs on **DuckDB**
+(local / CI) and is **Snowflake-ready** — the same dbt models build against a
+second `dbt-snowflake` profile (not yet run against a live Snowflake account).
 
 It answers three questions about the payload chemical space: structure–activity
 ranking per target, compound selectivity profiling, and chemical-space
@@ -30,14 +31,15 @@ ChEMBL REST API
    → marts (star schema, dbt)
    → analytics (dbt)
    → Streamlit
-                DuckDB  ⇄  Snowflake   (same models, swapped profile)
+                DuckDB  ⇄  Snowflake   (same models, swapped profile;
+                                        Snowflake profile defined, not yet run)
 ```
 
 ## Quickstart
 
 ```bash
-# install everything
-pip install -e ".[dev,extract,dbt,dashboard]"
+# install everything (add `orchestration` for the Dagster asset graph)
+pip install -e ".[dev,extract,dbt,dashboard,orchestration]"
 
 # lint + test
 ruff check .
@@ -57,13 +59,21 @@ dbt build --project-dir dbt --profiles-dir dbt/profiles
 streamlit run dashboard/app.py
 ```
 
-The pipeline stages are added across milestones M1–M7 — see [`SPEC.md`](./SPEC.md) §12.
+Or drive the whole lineage through Dagster (see [`docs/ORCHESTRATION.md`](./docs/ORCHESTRATION.md)):
+
+```bash
+dagster dev            # UI + lineage graph at http://localhost:3000
+```
 
 ## Project status
 
-Milestone **M0 — scaffold**. Repository structure, container, CI, and the
-target-set configuration are in place; ingestion and transformation logic land
-in subsequent milestones.
+Core pipeline **built end to end**: config-driven ChEMBL extract with provenance;
+dbt medallion (staging → star-schema marts → analytical marts) on DuckDB; UniChem
+and PDBe cross-reference enrichment with an embedded 3D co-crystal viewer; and a
+Streamlit dashboard (deployed on Streamlit Community Cloud). The full lineage is
+orchestrated as a **Dagster asset graph** with dbt tests surfaced as asset checks
+(see [`docs/ORCHESTRATION.md`](./docs/ORCHESTRATION.md)). The warehouse is
+Snowflake-ready via a second dbt profile, not yet run against a live account.
 
 ## Data provenance & license
 

@@ -25,8 +25,11 @@ dbt = [
   "dbt-snowflake>=1.8",
 ]
 orchestration = [
-  "dagster>=1.7",
-  "dagster-webserver>=1.7",
+  "dagster>=1.8",
+  "dagster-webserver>=1.8",
+  "dagster-dbt>=0.24",
+  # dagster-dbt drives dbt via the CLI, so the `dbt` extra (dbt-duckdb) must be
+  # installed alongside this one to run the pipeline (CI installs both).
 ]
 dashboard = [
   "streamlit>=1.36",

@@ -233,8 +233,8 @@ Physicochemical profile joined with potency summary and `is_approved_drug` flag,
 | Validation | Pandera (ingestion) + dbt tests (warehouse) | Two-tier data quality |
 | Transform | dbt | Industry-standard ELT; consistency with `mAbVault` shows depth |
 | Engine (local) | DuckDB | Fast, zero-infra CI default |
-| Engine (cloud) | Snowflake (free trial) | **Fills the Snowflake CV gap**; demonstrates runtime portability |
-| Orchestration | Dagster (default) *or* Airflow | Dagster = faster (already known); Airflow = broader keyword coverage. **Decision pending (Section 11).** |
+| Engine (cloud) | Snowflake (free trial) | Runtime-portability target: same models, second `dbt-snowflake` profile. **Profile defined; not yet run against a live account** (see Section 11). |
+| Orchestration | **Dagster** | **Implemented** as an asset graph (extract multi-asset + dbt models as assets, dbt tests as asset checks). See `docs/ORCHESTRATION.md`. |
 | Serving | Streamlit (DuckDB-backed) | Functionally fills the Tableau gap; one optional Tableau Public board for the literal keyword |
 | Packaging | Docker + docker-compose | `docker compose up` reproducibility |
 | CI | GitHub Actions | Automated build + test gate |
@@ -307,7 +307,7 @@ A single job materializes the full lineage in the strict sequence: `extract → 
 
 ## 11. Open decisions (to confirm before build)
 
-1. **Orchestrator:** Dagster (faster, already known) vs. Airflow (broader keyword). → *Recommendation: Dagster for v1, note Airflow as a documented alternative.*
+1. **Orchestrator:** ~~Dagster vs. Airflow~~ → **resolved: Dagster**, implemented as an asset graph (`orchestration/definitions.py`, `docs/ORCHESTRATION.md`). Airflow remains a documented alternative.
 2. **Exact target set:** Final list of ChEMBL target IDs for `target_set.yml`. Needs a short verification pass against ChEMBL to confirm IDs and resulting volume.
 3. **Snowflake timing:** Trial accounts expire; sequence the Snowflake milestone so the trial window covers the demo/screenshot phase.
 4. **Repo name:** ~~pending~~ → **resolved: `SARVault`** (parallels `mAbVault`; SAR = the analytical core).
@@ -340,4 +340,4 @@ Workflow mirrors `mAbVault`: design-first, patch/PR-based, full pipeline run bef
 - Star schema + three analytical marts materialize with documented grain.
 - Dashboard renders SAR ranking, selectivity, and chemical-space views.
 - README documents data provenance, ChEMBL version, license/attribution, and the DuckDB↔Snowflake runtime story.
-- Snowflake build verified at least once (screenshot/notes in `docs/`).
+- Snowflake build verified at least once (screenshot/notes in `docs/`). **Outstanding: never run against a live Snowflake account; the profile is defined but unverified.**

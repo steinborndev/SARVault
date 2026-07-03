@@ -8,6 +8,12 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    env:
+      # DbtCliResource (Dagster) runs dbt with cwd = the dbt project dir, so the
+      # raw fixtures dir must be ABSOLUTE for the orchestration job/tests. The
+      # plain `dbt build`/`dbt parse` steps below run from the repo root, where an
+      # absolute path is equally valid.
+      SARVAULT_RAW_DIR: ${{ github.workspace }}/tests/fixtures/raw
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-python@v6
@@ -16,12 +22,20 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -e ".[dev,extract,dbt,dashboard]"
+          pip install -e ".[dev,extract,dbt,dashboard,orchestration]"
       - name: Lint
         run: ruff check .
       - name: dbt build (fixtures)
-        env:
-          SARVAULT_RAW_DIR: tests/fixtures/raw
         run: dbt build --project-dir dbt --profiles-dir dbt/profiles
+      - name: dbt parse (orchestration manifest)
+        # Generates dbt/target/manifest.json so dagster-dbt can load the asset
+        # graph at import time (required before the Dagster step and pytest).
+        run: dbt parse --project-dir dbt --profiles-dir dbt/profiles
+      - name: Dagster job (transform, from fixtures)
+        # Materialises the full medallion asset graph + runs every dbt test and
+        # the two explicit warehouse checks as asset checks.
+        env:
+          DUCKDB_PATH: /tmp/sarvault_dagster_ci.duckdb
+        run: dagster job execute -j sarvault_transform -m orchestration.definitions
       - name: Test
         run: pytest -q

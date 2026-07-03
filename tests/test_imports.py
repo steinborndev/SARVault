@@ -15,7 +15,9 @@ MODULES = [
     "extract.extract_assays",
     "extract.extract_activities",
     "validation.schemas",
-    "orchestration.definitions",
+    # orchestration.definitions is intentionally excluded: it now requires the
+    # Dagster extras and a parsed dbt manifest, so it is exercised by its own
+    # suite (tests/test_orchestration.py) rather than this light-import check.
 ]
 
 
