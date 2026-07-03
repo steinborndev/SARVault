@@ -38,8 +38,9 @@ def render(target_names):
         st.session_state["scope_targets"], target_names
     )
 
-    _, scope_col = st.columns([11, 1])
-    with scope_col.popover("Scope", width="stretch"):
+    # The caller places this within the header row (a right-hand column), so the
+    # popover renders directly here rather than nesting its own columns.
+    with st.popover("Scope", width="stretch"):
         st.multiselect("Targets", target_names, key="scope_targets")
         st.radio("Approval", _APPROVAL, horizontal=True, key="scope_approval")
         st.slider("Min best pChEMBL", 0.0, 12.0, step=0.5, key="scope_min_pchembl")

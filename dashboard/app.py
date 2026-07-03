@@ -39,11 +39,13 @@ st.set_page_config(page_title="SARVault", page_icon=_ICON, layout="wide")
 
 def _logo_html(height: int = 84) -> str:
     b64 = base64.b64encode(Path(_LOGO).read_bytes()).decode()
+    # A bare, flush-left <img>. The previous width:100% flex wrapper left the icon
+    # inset from the content edge, so it didn't line up with the text below it;
+    # display:block + margin:0 pins the icon's left edge to the container's
+    # content-left, level with the subtitle and page body.
     return (
-        '<div style="width:100%;display:flex;justify-content:flex-start;margin:0;padding:0">'
         f'<img src="data:image/svg+xml;base64,{b64}" height="{height}" '
         'style="display:block;margin:0">'
-        "</div>"
     )
 
 
@@ -117,12 +119,14 @@ except Exception as exc:  # warehouse missing or unbuilt
     )
     st.stop()
 
-# --- header: scope popover pinned top-right, then logo + subtitle flush-left ---
+# --- header: logo flush-left and the scope popover share the same top line ---
 target_names = data.list_target_names(con)
-scope.render(target_names)
+logo_col, scope_col = st.columns([11, 1], vertical_alignment="top")
+with logo_col:
+    st.markdown(_logo_html(), unsafe_allow_html=True)
+with scope_col:
+    scope.render(target_names)
 
-# Logo + unified subtitle render full-width so they sit flush-left with the page content.
-st.markdown(_logo_html(), unsafe_allow_html=True)
 st.caption(
     "Structure–activity intelligence over a reproducible warehouse of public ChEMBL "
     "bioactivity data, scoped to cytotoxic / tubulin-targeting compounds: the chemistry "
