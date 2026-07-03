@@ -273,6 +273,29 @@ def test_smiles_to_svg_scaffold_aligned_and_highlighted():
     assert fallback and "<svg" in fallback
 
 
+def test_scaffold_frame_and_framed_render():
+    scaffold = "c1ccc(-c2ccccc2)cc1"  # biphenyl core
+    members = [
+        "Cc1ccc(-c2ccccc2)cc1",
+        "Clc1ccc(-c2ccccc2)cc1",
+        "Nc1ccc(-c2ccc(F)cc2)cc1",
+        "COc1ccc(-c2ccccc2)cc1",
+    ]
+    frame = chem.scaffold_frame(scaffold, members)
+    assert frame is not None and len(frame) == 4  # (cx, cy, frame_radius, fence)
+    cx, cy, frame_radius, fence = frame
+    assert frame_radius > 0
+
+    # Rendering a member with the shared frame still yields a valid SVG.
+    svg = chem.smiles_to_svg(
+        members[0], scaffold_smiles=scaffold, align_to_scaffold=True, frame=frame
+    )
+    assert svg and "<svg" in svg
+
+    # An unusable scaffold yields no frame rather than raising.
+    assert chem.scaffold_frame("not-a-smiles", members) is None
+
+
 def test_overview_metrics_respects_scope():
     target_sar, catalog = _scope_fixtures()
     all_m = logic.overview_metrics(target_sar, catalog, {})

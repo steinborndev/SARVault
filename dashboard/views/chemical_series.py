@@ -12,6 +12,26 @@ import streamlit as st
 
 from dashboard import chem, compound_detail, data, logic
 
+# Enlarge the clickable rank count to the metric-value size so it matches the Delta
+# metrics beside it. Scoped to the keyed nav container via Streamlit's documented
+# `st-key-<key>` class, so it targets only these buttons and nothing else.
+_RANK_NAV_CSS = """
+<style>
+[class*="st-key-sv_rank_nav"] button,
+[class*="st-key-sv_rank_nav"] button * {
+    font-size: 2.25rem !important;
+    font-weight: 600 !important;
+    line-height: 1.1 !important;
+}
+[class*="st-key-sv_rank_nav"] button { padding: 0 0.35rem; min-height: 0; }
+[class*="st-key-sv_rank_nav"] [data-testid="stMarkdownContainer"] p {
+    font-size: 2.25rem;
+    line-height: 1.1;
+    margin: 0;
+}
+</style>
+"""
+
 
 @st.cache_data(show_spinner=False)
 def _series_frame(scaffold_smiles, member_smiles):
@@ -196,36 +216,35 @@ def render(con, scope):
 
 
 def _member_context(member, idx, members, series_row, members_key):
-    """Where this compound sits within its scaffold series (rank + Delta to series stats).
+    """Rank within the scaffold series plus Delta to series stats.
 
-    The small prev/next buttons sit inline with the rank and walk the member table
-    (potency order) without a row click, by moving the dataframe's selection via
-    ``logic.step_selection`` - pairing with the scaffold-aligned depiction so the core
-    stays fixed as you step through substituents.
+    The rank count doubles as the navigator (no separate arrow controls): clicking the
+    position number steps to the previous (more potent) member, clicking the total steps
+    to the next, by moving the dataframe's selection via ``logic.step_selection``.
     """
     best = member["best_pchembl"]
-    measured = int(members["best_pchembl"].notna().sum())
     n = len(members)
-    # Small arrows a short gap to the right of the rank, aligned to its value line.
-    cols = st.columns(
-        [2.4, 0.4, 0.5, 0.5, 3, 3], gap="small", vertical_alignment="bottom"
-    )
-    # members are sorted by best_pchembl desc (nulls last), so idx+1 is the rank.
-    rank = f"#{idx + 1} of {measured}" if pd.notna(best) else "-"
-    cols[0].metric("Potency rank in series", rank)
-    cols[2].button(
-        "◀", key=f"prev_{members_key}", type="primary",
-        disabled=idx <= 0, help="Previous (more potent) member",
-        on_click=logic.step_selection, args=(st.session_state, members_key, -1, n),
-    )
-    cols[3].button(
-        "▶", key=f"next_{members_key}", type="primary",
-        disabled=idx >= n - 1, help="Next (less potent) member",
-        on_click=logic.step_selection, args=(st.session_state, members_key, 1, n),
-    )
+    cols = st.columns([3, 4, 4], vertical_alignment="bottom")
+    with cols[0]:
+        st.caption("Potency rank in series")
+        st.markdown(_RANK_NAV_CSS, unsafe_allow_html=True)
+        with st.container(
+            horizontal=True, gap="small", vertical_alignment="center", key="sv_rank_nav"
+        ):
+            st.button(
+                f"#{idx + 1}", key=f"prev_{members_key}", type="tertiary",
+                disabled=idx <= 0, help="Previous (more potent) member",
+                on_click=logic.step_selection, args=(st.session_state, members_key, -1, n),
+            )
+            st.markdown("of")
+            st.button(
+                f"{n}", key=f"next_{members_key}", type="tertiary",
+                disabled=idx >= n - 1, help="Next (less potent) member",
+                on_click=logic.step_selection, args=(st.session_state, members_key, 1, n),
+            )
     if pd.notna(best):
-        cols[4].metric(
+        cols[1].metric(
             "Δ to series best", f"{best - series_row['max_pchembl']:+.2f}",
             help="This compound's best pChEMBL minus the series' most potent",
         )
-        cols[5].metric("Δ to series median", f"{best - series_row['median_pchembl']:+.2f}")
+        cols[2].metric("Δ to series median", f"{best - series_row['median_pchembl']:+.2f}")

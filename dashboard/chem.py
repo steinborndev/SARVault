@@ -1,11 +1,34 @@
 """Chemical structure rendering (SMILES -> 2D SVG) and descriptors via RDKit."""
 
+import math
+import statistics
+
 # Pale-green wash used to subtly mark the shared scaffold in a series depiction.
 _SCAFFOLD_HL = (0.16, 0.77, 0.42, 0.22)
 
 # Template mols (scaffold SMILES -> mol with fixed 2D coords), cached per process so a
 # whole series aligns to one reference frame without recomputing coordinates per render.
 _TEMPLATE_CACHE: dict = {}
+
+# Small breathing margin (Angstrom) added around a molecule's drawing window.
+_FRAME_PAD = 0.6
+
+_COORDGEN_ENABLED = False
+
+
+def _ensure_coordgen() -> None:
+    """Prefer the CoordGen layout engine (idempotent, process-global).
+
+    CoordGen produces cleaner 2D layouts for fused and heavily-substituted systems and,
+    under a template, re-orients pendant groups to avoid the overlaps the classic
+    depictor leaves behind - while still placing the matched core on the template.
+    """
+    global _COORDGEN_ENABLED
+    if not _COORDGEN_ENABLED:
+        from rdkit.Chem import rdDepictor
+
+        rdDepictor.SetPreferCoordGen(True)
+        _COORDGEN_ENABLED = True
 
 
 def heavy_atom_count(smiles: str) -> int | None:
@@ -51,11 +74,29 @@ def _template_mol(scaffold_smiles: str):
     from rdkit import Chem
     from rdkit.Chem import rdDepictor
 
+    _ensure_coordgen()
     templ = Chem.MolFromSmiles(scaffold_smiles)
     if templ is not None:
         rdDepictor.Compute2DCoords(templ)
     _TEMPLATE_CACHE[scaffold_smiles] = templ
     return templ
+
+
+def _template_centroid(template) -> tuple:
+    conf = template.GetConformer()
+    n = template.GetNumAtoms()
+    cx = sum(conf.GetAtomPosition(i).x for i in range(n)) / n
+    cy = sum(conf.GetAtomPosition(i).y for i in range(n)) / n
+    return cx, cy
+
+
+def _radius_from(mol, cx: float, cy: float) -> float:
+    """Largest distance from (cx, cy) to any atom of ``mol`` (its conformer)."""
+    conf = mol.GetConformer()
+    return max(
+        math.dist((conf.GetAtomPosition(i).x, conf.GetAtomPosition(i).y), (cx, cy))
+        for i in range(mol.GetNumAtoms())
+    )
 
 
 def smiles_to_svg(
@@ -75,10 +116,11 @@ def smiles_to_svg(
     fixed frame, so that clicking through a series keeps the common core still and only
     the substituents move, with the core optionally given a subtle highlight.
 
-    When ``frame`` (a shared min_x, min_y, max_x, max_y window from ``scaffold_frame``)
-    is given and the member aligns, the drawing scale and origin are pinned to that
-    window, so the aligned core lands on identical pixels for every member of the series
-    rather than being re-centred and re-scaled per molecule.
+    When ``frame`` (from ``scaffold_frame``) is given and the member aligns, the drawing
+    is centred on the shared scaffold centroid so the core sits at the same spot for
+    every member. Typical members share one scale (the core is the same size too); an
+    unusually large "outlier" member is scaled down to fit around that same centre
+    instead of being clipped, so only its size changes, not the core's position.
 
     Falls back to a plain depiction when the SMARTS is invalid/unmatched or the scaffold
     does not substructure-match (rare aromaticity/kekulisation cases), so a single odd
@@ -89,7 +131,9 @@ def smiles_to_svg(
     from rdkit import Chem
     from rdkit.Chem import rdDepictor
     from rdkit.Chem.Draw import rdMolDraw2D
+    from rdkit.Geometry import Point2D
 
+    _ensure_coordgen()
     mol = Chem.MolFromSmiles(smiles)
     if mol is None:
         return None
@@ -131,13 +175,15 @@ def smiles_to_svg(
                 highlight_atoms.extend(m)
 
     drawer = rdMolDraw2D.MolDraw2DSVG(width, height)
-    # Pin scale + origin to the shared window so the aligned core is pixel-stable across
-    # the series (only substituents move); skipped when the member could not be aligned.
+    # Centre on the shared scaffold centroid so the core is position-stable across the
+    # series. Typical members share one radius (stable core size); an outlier gets its
+    # own radius so it fits fully instead of clipping - only its size differs.
     if aligned and frame is not None:
-        from rdkit.Geometry import Point2D
-
-        min_x, min_y, max_x, max_y = frame
-        drawer.SetScale(width, height, Point2D(min_x, min_y), Point2D(max_x, max_y))
+        cx, cy, frame_radius, fence = frame
+        r_member = _radius_from(mol, cx, cy)
+        r = r_member if (fence is not None and r_member > fence) else frame_radius
+        r = max(r, r_member) + _FRAME_PAD
+        drawer.SetScale(width, height, Point2D(cx - r, cy - r), Point2D(cx + r, cy + r))
     drawer.DrawMolecule(
         mol,
         highlightAtoms=highlight_atoms or None,
@@ -149,15 +195,15 @@ def smiles_to_svg(
     return drawer.GetDrawingText()
 
 
-def scaffold_frame(scaffold_smiles: str, member_smiles, pad: float = 1.2) -> tuple | None:
-    """Shared drawing window (min_x, min_y, max_x, max_y) for a scaffold's members.
+def scaffold_frame(scaffold_smiles: str, member_smiles) -> tuple | None:
+    """Shared centred drawing window for a scaffold's members.
 
-    Aligns every member to the scaffold and returns the padded union of their 2D
-    coordinates. Passing this same window to ``smiles_to_svg`` for each member fixes the
-    scale and origin, so the shared core draws at identical pixels across the series and
-    only the substituents move. Members that do not match the scaffold are skipped so a
-    stray compound cannot distort the frame. Returns None when the scaffold is unusable
-    or no member yields coordinates.
+    Returns ``(cx, cy, frame_radius, fence)`` where ``(cx, cy)`` is the scaffold centroid
+    (identical across aligned members), ``frame_radius`` is the window half-size that
+    fits the typical members, and ``fence`` is the Tukey outlier threshold (Q3 + 1.5*IQR)
+    on member radii - members beyond it are scaled to fit individually rather than
+    shrinking the whole series. With fewer than four members no fence is set. Returns None
+    when the scaffold is unusable or no member yields coordinates.
     """
     if not scaffold_smiles:
         return None
@@ -167,9 +213,9 @@ def scaffold_frame(scaffold_smiles: str, member_smiles, pad: float = 1.2) -> tup
     template = _template_mol(scaffold_smiles)
     if template is None:
         return None
+    cx, cy = _template_centroid(template)
 
-    xs: list[float] = []
-    ys: list[float] = []
+    radii: list[float] = []
     for smi in member_smiles:
         if not smi:
             continue
@@ -180,12 +226,16 @@ def scaffold_frame(scaffold_smiles: str, member_smiles, pad: float = 1.2) -> tup
             rdDepictor.GenerateDepictionMatching2DStructure(mol, template)
         except (ValueError, RuntimeError):
             continue
-        conf = mol.GetConformer()
-        for i in range(mol.GetNumAtoms()):
-            p = conf.GetAtomPosition(i)
-            xs.append(p.x)
-            ys.append(p.y)
+        radii.append(_radius_from(mol, cx, cy))
 
-    if not xs:
+    if not radii:
         return None
-    return (min(xs) - pad, min(ys) - pad, max(xs) + pad, max(ys) + pad)
+
+    fence = None
+    if len(radii) >= 4:
+        q1, _, q3 = statistics.quantiles(radii, n=4)
+        fence = q3 + 1.5 * (q3 - q1)
+
+    typical = [r for r in radii if fence is None or r <= fence]
+    frame_radius = max(typical) if typical else max(radii)
+    return (cx, cy, frame_radius, fence)
