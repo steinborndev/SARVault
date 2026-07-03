@@ -5,6 +5,14 @@ sources:
     description: "ChEMBL records landed by the extract layer as Parquet (file-based raw layer)."
     meta:
       external_location: "read_parquet('{{ env_var('SARVAULT_RAW_DIR', 'raw') }}/raw_{name}.parquet')"
+    # Source freshness on the raw landing layer: every extract stamps an ISO-8601 UTC
+    # _fetch_ts, cast to a timestamp so dbt can measure staleness. Thresholds reflect a
+    # manual/batch ChEMBL refresh cadence; a stale raw layer warns (and, far out, errors)
+    # so a forgotten refresh is visible rather than silent.
+    loaded_at_field: "cast(_fetch_ts as timestamp with time zone)"
+    freshness:
+      warn_after: {count: 90, period: day}
+      error_after: {count: 3650, period: day}
     tables:
       - name: activities
       - name: molecules

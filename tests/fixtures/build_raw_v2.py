@@ -35,8 +35,10 @@ def main() -> None:
     mol.loc[mol["molecule_chembl_id"] == "CHEMBLM2", "max_phase"] = 4.0
     mol.to_parquet(DST / "raw_molecules.parquet", index=False)
 
-    # 2. Two new activities appended (stable, higher activity_ids).
+    # 2. Two new activities appended (stable, higher activity_ids). Stamped with a
+    # later _fetch_ts to represent a subsequent ChEMBL release fetch.
     act = pd.read_parquet(SRC / "raw_activities.parquet")
+    v2_fetch_ts = "2026-08-01T09:00:00+00:00"
     new = pd.DataFrame(
         [
             {
@@ -51,6 +53,7 @@ def main() -> None:
                 "pchembl_value": 7.0,
                 "data_validity_comment": None,
                 "document_chembl_id": "CHEMBLD13",
+                "_fetch_ts": v2_fetch_ts,
             },
             {
                 "activity_id": 14,
@@ -64,10 +67,11 @@ def main() -> None:
                 "pchembl_value": 6.8,
                 "data_validity_comment": None,
                 "document_chembl_id": "CHEMBLD14",
+                "_fetch_ts": v2_fetch_ts,
             },
         ]
     )
-    act = pd.concat([act, new[act.columns]], ignore_index=True)
+    act = pd.concat([act, new.reindex(columns=act.columns)], ignore_index=True)
     act.to_parquet(DST / "raw_activities.parquet", index=False)
 
     print(f"raw_v2 written to {DST} ({len(list(DST.glob('*.parquet')))} files)")
