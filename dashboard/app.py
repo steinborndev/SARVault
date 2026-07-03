@@ -18,7 +18,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import streamlit as st  # noqa: E402
 
-from dashboard import data  # noqa: E402
+from dashboard import data, scope  # noqa: E402
 from dashboard.views import (  # noqa: E402
     activity_cliffs,
     chemical_series,
@@ -33,7 +33,6 @@ from dashboard.views import (  # noqa: E402
 _ASSETS = Path(__file__).resolve().parents[1] / "assets"
 _LOGO = str(_ASSETS / "logo.svg")
 _ICON = str(_ASSETS / "icon.svg")
-_APPROVAL = ["all", "approved", "research"]
 
 st.set_page_config(page_title="SARVault", page_icon=_ICON, layout="wide")
 
@@ -120,23 +119,7 @@ except Exception as exc:  # warehouse missing or unbuilt
 
 # --- header: scope popover pinned top-right, then logo + subtitle flush-left ---
 target_names = data.list_target_names(con)
-prev = st.session_state.get("scope", {})
-_, scope_col = st.columns([11, 1])
-with scope_col.popover("Scope", width="stretch"):
-    sel_targets = st.multiselect("Targets", target_names, default=prev.get("targets", target_names))
-    approval = st.radio(
-        "Approval", _APPROVAL, index=_APPROVAL.index(prev.get("approval", "all")), horizontal=True
-    )
-    min_pchembl = st.slider("Min best pChEMBL", 0.0, 12.0, float(prev.get("min_pchembl", 0.0)), 0.5)
-    structure_only = st.toggle(
-        "Only with 3D crystal structure", value=bool(prev.get("structure_only", False))
-    )
-st.session_state["scope"] = {
-    "targets": sel_targets or target_names,
-    "approval": approval,
-    "min_pchembl": min_pchembl,
-    "structure_only": structure_only,
-}
+scope.render(target_names)
 
 # Logo + unified subtitle render full-width so they sit flush-left with the page content.
 st.markdown(_logo_html(), unsafe_allow_html=True)
