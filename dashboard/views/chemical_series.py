@@ -12,25 +12,30 @@ import streamlit as st
 
 from dashboard import chem, compound_detail, data, logic
 
-# Enlarge the clickable rank count to the metric-value size so it matches the Delta
-# metrics beside it. Scoped to the keyed nav container via Streamlit's documented
-# `st-key-<key>` class, so it targets only these buttons and nothing else.
-_RANK_NAV_CSS = """
+# Render the rank count and the two Delta values as structurally identical blocks (a
+# small label element + a large value element) so they line up cleanly on one row - the
+# clickable rank is real buttons, the Deltas are styled text, but all share one look.
+# Scoped to the documented `st-key-<key>` class, so it touches only these elements.
+_STAT_ROW_CSS = """
 <style>
+.sv-stat-label { font-size: 0.8rem; color: rgba(250, 250, 250, 0.6);
+                 line-height: 1.3; margin: 0; white-space: nowrap; }
+.sv-stat-value { font-size: 2.25rem; font-weight: 600; line-height: 1.1; margin: 0; }
+[class*="st-key-sv_rank_nav"] { align-items: baseline; }
 [class*="st-key-sv_rank_nav"] button,
-[class*="st-key-sv_rank_nav"] button * {
-    font-size: 2.25rem !important;
-    font-weight: 600 !important;
-    line-height: 1.1 !important;
+[class*="st-key-sv_rank_nav"] button *,
+[class*="st-key-sv_rank_nav"] p {
+    font-size: 2.25rem !important; font-weight: 600 !important;
+    line-height: 1.1 !important; margin: 0 !important;
 }
-[class*="st-key-sv_rank_nav"] button { padding: 0 0.35rem; min-height: 0; }
-[class*="st-key-sv_rank_nav"] [data-testid="stMarkdownContainer"] p {
-    font-size: 2.25rem;
-    line-height: 1.1;
-    margin: 0;
-}
+[class*="st-key-sv_rank_nav"] button { padding: 0 0.3rem !important; min-height: 0 !important; }
 </style>
 """
+
+
+def _stat_label(text: str, tooltip: str | None = None) -> str:
+    title = f' title="{tooltip}"' if tooltip else ""
+    return f'<div class="sv-stat-label"{title}>{text}</div>'
 
 
 @st.cache_data(show_spinner=False)
@@ -224,12 +229,12 @@ def _member_context(member, idx, members, series_row, members_key):
     """
     best = member["best_pchembl"]
     n = len(members)
+    st.markdown(_STAT_ROW_CSS, unsafe_allow_html=True)
     cols = st.columns([3, 4, 4], vertical_alignment="bottom")
     with cols[0]:
-        st.caption("Potency rank in series")
-        st.markdown(_RANK_NAV_CSS, unsafe_allow_html=True)
+        st.markdown(_stat_label("Potency rank in series"), unsafe_allow_html=True)
         with st.container(
-            horizontal=True, gap="small", vertical_alignment="center", key="sv_rank_nav"
+            horizontal=True, gap="small", vertical_alignment="bottom", key="sv_rank_nav"
         ):
             st.button(
                 f"#{idx + 1}", key=f"prev_{members_key}", type="tertiary",
@@ -243,8 +248,19 @@ def _member_context(member, idx, members, series_row, members_key):
                 on_click=logic.step_selection, args=(st.session_state, members_key, 1, n),
             )
     if pd.notna(best):
-        cols[1].metric(
-            "Δ to series best", f"{best - series_row['max_pchembl']:+.2f}",
-            help="This compound's best pChEMBL minus the series' most potent",
-        )
-        cols[2].metric("Δ to series median", f"{best - series_row['median_pchembl']:+.2f}")
+        d_best = best - series_row["max_pchembl"]
+        d_median = best - series_row["median_pchembl"]
+        with cols[1]:
+            st.markdown(
+                _stat_label(
+                    "Δ to series best",
+                    "This compound's best pChEMBL minus the series' most potent",
+                ),
+                unsafe_allow_html=True,
+            )
+            st.markdown(f'<div class="sv-stat-value">{d_best:+.2f}</div>', unsafe_allow_html=True)
+        with cols[2]:
+            st.markdown(_stat_label("Δ to series median"), unsafe_allow_html=True)
+            st.markdown(
+                f'<div class="sv-stat-value">{d_median:+.2f}</div>', unsafe_allow_html=True
+            )

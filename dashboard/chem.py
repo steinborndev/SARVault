@@ -10,8 +10,8 @@ _SCAFFOLD_HL = (0.16, 0.77, 0.42, 0.22)
 # whole series aligns to one reference frame without recomputing coordinates per render.
 _TEMPLATE_CACHE: dict = {}
 
-# Small breathing margin (Angstrom) added around a molecule's drawing window.
-_FRAME_PAD = 0.6
+# Fractional breathing margin added around a molecule's drawing window.
+_FRAME_PAD = 0.08
 
 _COORDGEN_ENABLED = False
 
@@ -90,13 +90,18 @@ def _template_centroid(template) -> tuple:
     return cx, cy
 
 
-def _radius_from(mol, cx: float, cy: float) -> float:
-    """Largest distance from (cx, cy) to any atom of ``mol`` (its conformer)."""
+def _extents_from(mol, cx: float, cy: float) -> tuple:
+    """Return (radius, half_width, half_height) of ``mol`` measured from (cx, cy).
+
+    ``radius`` is the farthest atom (used for outlier detection); ``half_width`` and
+    ``half_height`` are the largest |dx| and |dy| from the centre, used to size a window
+    that actually fills the canvas rather than a square sized to the diagonal.
+    """
     conf = mol.GetConformer()
-    return max(
-        math.dist((conf.GetAtomPosition(i).x, conf.GetAtomPosition(i).y), (cx, cy))
-        for i in range(mol.GetNumAtoms())
-    )
+    dxs = [abs(conf.GetAtomPosition(i).x - cx) for i in range(mol.GetNumAtoms())]
+    dys = [abs(conf.GetAtomPosition(i).y - cy) for i in range(mol.GetNumAtoms())]
+    radius = max(math.hypot(dx, dy) for dx, dy in zip(dxs, dys))
+    return radius, max(dxs), max(dys)
 
 
 def smiles_to_svg(
@@ -176,14 +181,24 @@ def smiles_to_svg(
 
     drawer = rdMolDraw2D.MolDraw2DSVG(width, height)
     # Centre on the shared scaffold centroid so the core is position-stable across the
-    # series. Typical members share one radius (stable core size); an outlier gets its
-    # own radius so it fits fully instead of clipping - only its size differs.
+    # series, and size the window to the canvas aspect so the structure fills it. Typical
+    # members share one window (stable core position and size); an outlier uses its own
+    # extents so it fits fully instead of clipping - only its size differs.
     if aligned and frame is not None:
-        cx, cy, frame_radius, fence = frame
-        r_member = _radius_from(mol, cx, cy)
-        r = r_member if (fence is not None and r_member > fence) else frame_radius
-        r = max(r, r_member) + _FRAME_PAD
-        drawer.SetScale(width, height, Point2D(cx - r, cy - r), Point2D(cx + r, cy + r))
+        cx, cy, frame_hx, frame_hy, fence = frame
+        r_member, mhx, mhy = _extents_from(mol, cx, cy)
+        base_hx, base_hy = (
+            (mhx, mhy) if (fence is not None and r_member > fence) else (frame_hx, frame_hy)
+        )
+        base_hx, base_hy = max(base_hx, 1e-6), max(base_hy, 1e-6)
+        # Grow the shorter axis to the canvas aspect so nothing is letterboxed.
+        if base_hx / base_hy >= width / height:
+            hx, hy = base_hx, base_hx * height / width
+        else:
+            hx, hy = base_hy * width / height, base_hy
+        hx *= 1.0 + _FRAME_PAD
+        hy *= 1.0 + _FRAME_PAD
+        drawer.SetScale(width, height, Point2D(cx - hx, cy - hy), Point2D(cx + hx, cy + hy))
     drawer.DrawMolecule(
         mol,
         highlightAtoms=highlight_atoms or None,
@@ -198,12 +213,13 @@ def smiles_to_svg(
 def scaffold_frame(scaffold_smiles: str, member_smiles) -> tuple | None:
     """Shared centred drawing window for a scaffold's members.
 
-    Returns ``(cx, cy, frame_radius, fence)`` where ``(cx, cy)`` is the scaffold centroid
-    (identical across aligned members), ``frame_radius`` is the window half-size that
-    fits the typical members, and ``fence`` is the Tukey outlier threshold (Q3 + 1.5*IQR)
-    on member radii - members beyond it are scaled to fit individually rather than
-    shrinking the whole series. With fewer than four members no fence is set. Returns None
-    when the scaffold is unusable or no member yields coordinates.
+    Returns ``(cx, cy, frame_hx, frame_hy, fence)`` where ``(cx, cy)`` is the scaffold
+    centroid (identical across aligned members), ``frame_hx``/``frame_hy`` are the window
+    half-extents that fit the typical members, and ``fence`` is the Tukey outlier
+    threshold (Q3 + 1.5*IQR) on member radii - members beyond it are scaled to fit
+    individually rather than shrinking the whole series. With fewer than four members no
+    fence is set. Returns None when the scaffold is unusable or no member yields
+    coordinates.
     """
     if not scaffold_smiles:
         return None
@@ -215,7 +231,7 @@ def scaffold_frame(scaffold_smiles: str, member_smiles) -> tuple | None:
         return None
     cx, cy = _template_centroid(template)
 
-    radii: list[float] = []
+    extents: list[tuple] = []  # (radius, half_width, half_height) per member
     for smi in member_smiles:
         if not smi:
             continue
@@ -226,16 +242,20 @@ def scaffold_frame(scaffold_smiles: str, member_smiles) -> tuple | None:
             rdDepictor.GenerateDepictionMatching2DStructure(mol, template)
         except (ValueError, RuntimeError):
             continue
-        radii.append(_radius_from(mol, cx, cy))
+        extents.append(_extents_from(mol, cx, cy))
 
-    if not radii:
+    if not extents:
         return None
 
+    radii = [r for r, _, _ in extents]
     fence = None
     if len(radii) >= 4:
         q1, _, q3 = statistics.quantiles(radii, n=4)
         fence = q3 + 1.5 * (q3 - q1)
 
-    typical = [r for r in radii if fence is None or r <= fence]
-    frame_radius = max(typical) if typical else max(radii)
-    return (cx, cy, frame_radius, fence)
+    typical = [(hx, hy) for (r, hx, hy) in extents if fence is None or r <= fence]
+    if not typical:
+        typical = [(hx, hy) for (_, hx, hy) in extents]
+    frame_hx = max(hx for hx, _ in typical)
+    frame_hy = max(hy for _, hy in typical)
+    return (cx, cy, frame_hx, frame_hy, fence)
