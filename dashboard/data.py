@@ -107,6 +107,33 @@ def load_compound_catalog(con: duckdb.DuckDBPyConnection) -> pd.DataFrame:
     return con.execute("select * from main_analytics.mart_compound_catalog").df()
 
 
+def load_fingerprints(con: duckdb.DuckDBPyConnection) -> pd.DataFrame:
+    """Per-compound ECFP4 hex fingerprint + scaffold (empty if the mart is absent).
+
+    A warehouse built before the cheminfo layer existed has no fingerprint mart;
+    return an empty frame so the similarity/substructure features degrade quietly
+    rather than breaking the whole page.
+    """
+    try:
+        return con.execute(
+            """
+            select compound_key, molecule_chembl_id, ecfp4_hex,
+                   murcko_scaffold_smiles, scaffold_key
+            from main_analytics.mart_compound_fingerprint
+            """
+        ).df()
+    except Exception:
+        return pd.DataFrame(
+            columns=[
+                "compound_key",
+                "molecule_chembl_id",
+                "ecfp4_hex",
+                "murcko_scaffold_smiles",
+                "scaffold_key",
+            ]
+        )
+
+
 def compound_target_profile(con: duckdb.DuckDBPyConnection, compound_key: int) -> pd.DataFrame:
     """Per-target potency for one compound (its SAR fingerprint)."""
     return con.execute(

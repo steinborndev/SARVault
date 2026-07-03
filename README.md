@@ -81,6 +81,19 @@ orchestrated as a **Dagster asset graph** with dbt tests surfaced as asset check
 (see [`docs/ORCHESTRATION.md`](./docs/ORCHESTRATION.md)). The warehouse is
 Snowflake-ready via a second dbt profile, not yet run against a live account.
 
+## Exploring structure
+
+The **Compound Library** page turns the ECFP4 fingerprints and Murcko scaffolds
+into interactive structure search:
+
+- **Structural analogs** — open any compound to see its nearest neighbours by ECFP4
+  Tanimoto similarity, each annotated with its best potency and the potency delta to
+  the query (a positive Δ flags a more potent close analog — a lead for the series).
+- **Substructure filter** — enter a SMARTS query in the sidebar to keep only compounds
+  containing that motif, with the matching atoms highlighted in the 2D depiction. For
+  example, `c1ccccc1` keeps benzene-bearing compounds, `C(=O)N` keeps amides, and
+  `[#7]` keeps anything with a nitrogen. An invalid pattern is flagged and ignored.
+
 ## Data provenance & license
 
 Bioactivity data originates from **ChEMBL** (EMBL-EBI), pinned to a specific

@@ -114,3 +114,76 @@ def overview_metrics(target_sar, catalog, scope):
         "multi_target": int((cat["n_targets"] >= 2).sum()),
         "approved": int(cat["is_approved_drug"].sum()),
     }
+
+
+# --- structural similarity (ECFP4 Tanimoto over the hex fingerprint) ------------
+def tanimoto_hex(a_hex: str, b_hex: str) -> float:
+    """Tanimoto similarity between two ECFP4 fingerprints given as hex strings.
+
+    Pure integer popcount (no RDKit): T = |A ∩ B| / |A ∪ B|. Two all-zero
+    fingerprints are defined as 0.0 (no shared structure to speak of).
+    """
+    if not a_hex or not b_hex:
+        return 0.0
+    a = int(a_hex, 16)
+    b = int(b_hex, 16)
+    union = (a | b).bit_count()
+    if union == 0:
+        return 0.0
+    return (a & b).bit_count() / union
+
+
+def nearest_neighbors(
+    query_key,
+    fingerprints,
+    catalog,
+    top_n: int = 10,
+    min_similarity: float = 0.0,
+    include_self: bool = False,
+):
+    """Rank compounds by ECFP4 Tanimoto to the query compound.
+
+    ``fingerprints`` needs columns compound_key, molecule_chembl_id, ecfp4_hex.
+    ``catalog`` supplies pref_name / best_pchembl / best_target per compound_key.
+    Returns a DataFrame sorted by descending similarity with the query's Δ potency
+    (neighbour best_pchembl − query best_pchembl; positive = more potent analog).
+    Empty (no fingerprint for the query, or nothing above ``min_similarity``) yields
+    an empty frame rather than raising.
+    """
+    import pandas as pd
+
+    cols = ["molecule_chembl_id", "pref_name", "tanimoto", "best_pchembl", "delta_pchembl", "best_target"]
+    q = fingerprints[fingerprints["compound_key"] == query_key]
+    if q.empty:
+        return pd.DataFrame(columns=cols)
+    q_hex = q.iloc[0]["ecfp4_hex"]
+
+    cat = catalog.set_index("compound_key")
+    q_best = cat["best_pchembl"].get(query_key) if "best_pchembl" in cat.columns else None
+
+    rows = []
+    for rec in fingerprints.itertuples(index=False):
+        if not include_self and rec.compound_key == query_key:
+            continue
+        sim = tanimoto_hex(q_hex, rec.ecfp4_hex)
+        if sim < min_similarity:
+            continue
+        best = cat["best_pchembl"].get(rec.compound_key) if "best_pchembl" in cat.columns else None
+        delta = (
+            float(best) - float(q_best)
+            if best is not None and q_best is not None and not _missing(best) and not _missing(q_best)
+            else None
+        )
+        rows.append(
+            {
+                "molecule_chembl_id": rec.molecule_chembl_id,
+                "pref_name": cat["pref_name"].get(rec.compound_key) if "pref_name" in cat.columns else None,
+                "tanimoto": round(sim, 3),
+                "best_pchembl": best,
+                "delta_pchembl": round(delta, 2) if delta is not None else None,
+                "best_target": cat["best_target"].get(rec.compound_key) if "best_target" in cat.columns else None,
+            }
+        )
+
+    out = pd.DataFrame(rows, columns=cols)
+    return out.sort_values("tanimoto", ascending=False).head(top_n).reset_index(drop=True)

@@ -127,7 +127,7 @@ def _ro5_line(row) -> str:
     return line
 
 
-def _detail(con, row, chosen):
+def _detail(con, row, chosen, fingerprints=None, catalog=None, highlight_smarts=None):
     name = row.get("pref_name")
     title = f"{chosen} — {name}" if name and str(name) != chosen else chosen
     suffix = " :green[· approved]" if bool(row["is_approved_drug"]) else ""
@@ -138,7 +138,7 @@ def _detail(con, row, chosen):
     # (key metrics + slim property table) grouped together on the right.
     left, right = st.columns([5, 7])
     with left:
-        svg = chem.smiles_to_svg(row.get("canonical_smiles"))
+        svg = chem.smiles_to_svg(row.get("canonical_smiles"), highlight_smarts=highlight_smarts)
         if svg:
             st.markdown(_structure_html(svg), unsafe_allow_html=True)
         else:
@@ -203,6 +203,36 @@ def _detail(con, row, chosen):
             )
             components.html(viewer.pdbe_molstar_html(pick), height=960)
 
+    # --- structural analogs (ECFP4 Tanimoto over the fingerprint mart) ---
+    ckey = int(row["compound_key"])
+    has_fp = fingerprints is not None and not fingerprints.empty and (
+        fingerprints["compound_key"] == ckey
+    ).any()
+    if has_fp:
+        st.divider()
+        st.markdown("**Structural analogs** — nearest compounds by ECFP4 Tanimoto")
+        ctrl = st.columns(2)
+        top_n = ctrl[0].slider("How many", 3, 25, 10, key=f"nn_n_{chosen}")
+        min_sim = ctrl[1].slider("Min Tanimoto", 0.0, 1.0, 0.30, 0.05, key=f"nn_s_{chosen}")
+        analogs = logic.nearest_neighbors(
+            ckey, fingerprints, catalog, top_n=top_n, min_similarity=min_sim
+        )
+        if analogs.empty:
+            st.info("No analogs above this Tanimoto threshold in the warehouse.")
+        else:
+            linked = analogs.copy()
+            linked["molecule_chembl_id"] = linked["molecule_chembl_id"].map(_CHEMBL_URL.format)
+            st.dataframe(
+                linked,
+                hide_index=True,
+                width="stretch",
+                column_config=_analog_column_config(),
+            )
+            st.caption(
+                "Δ pChEMBL is the analog's best potency minus this compound's — positive "
+                "means a more potent close neighbour (a lead for the SAR series)."
+            )
+
     st.divider()
     st.markdown(f"**Lipinski Ro5** — {_ro5_line(row)}")
     st.caption(
@@ -210,6 +240,31 @@ def _detail(con, row, chosen):
         "antibody-delivered rather than orally absorbed, and highly potent payloads "
         "often violate it by design."
     )
+
+
+@st.cache_data(show_spinner=False)
+def _substructure_hits(smarts: str, smiles: tuple[str, ...]) -> dict:
+    """Map each unique SMILES -> whether it contains the SMARTS (cached; RDKit is the cost)."""
+    return {s: bool(chem.has_substructure(s, smarts)) for s in set(smiles) if s}
+
+
+def _analog_column_config():
+    return {
+        "molecule_chembl_id": st.column_config.LinkColumn(
+            "ChEMBL ID",
+            help="Open the compound report card on ChEMBL",
+            display_text=r"(CHEMBL\d+)",
+        ),
+        "pref_name": st.column_config.TextColumn("Name"),
+        "tanimoto": st.column_config.ProgressColumn(
+            "Tanimoto", format="%.3f", min_value=0.0, max_value=1.0
+        ),
+        "best_pchembl": st.column_config.NumberColumn("Best pChEMBL", format="%.2f"),
+        "delta_pchembl": st.column_config.NumberColumn(
+            "Δ pChEMBL", format="%.2f", help="Analog best pChEMBL − this compound's"
+        ),
+        "best_target": st.column_config.TextColumn("Best target"),
+    }
 
 
 def render(con, scope):
@@ -236,6 +291,18 @@ def render(con, scope):
         hba_max = _int_max(cat["hba"], 15)
         hba_lo, hba_hi = st.slider("HBA range", 0, max(hba_max, 1), (0, max(hba_max, 1)))
         max_ro5 = st.slider("Max Ro5 violations", 0, 4, 4)
+        smarts_raw = st.text_input(
+            "Substructure (SMARTS)",
+            help="e.g. c1ccccc1 (benzene), C(=O)N (amide), [#7] (any nitrogen)",
+        ).strip()
+
+    # Validate the SMARTS once; an invalid pattern warns and is ignored (no crash).
+    smarts = None
+    if smarts_raw:
+        if chem.is_valid_smarts(smarts_raw):
+            smarts = smarts_raw
+        else:
+            st.sidebar.warning("Invalid SMARTS — substructure filter ignored.")
 
     # between() is inclusive on both ends, so a compound on a boundary (e.g. MW 500)
     # matches both the 450-500 and 500-550 windows.
@@ -252,6 +319,10 @@ def render(con, scope):
             view["molecule_chembl_id"].str.lower().str.contains(query)
             | view["pref_name"].fillna("").str.lower().str.contains(query)
         ]
+    if smarts:
+        hits = _substructure_hits(smarts, tuple(view["canonical_smiles"].fillna("")))
+        view = view[view["canonical_smiles"].fillna("").map(lambda s: hits.get(s, False))]
+        st.caption(f"Substructure filter `{smarts}` active — matching atoms highlighted below.")
 
     disp = view.sort_values("best_pchembl", ascending=False).reset_index(drop=True)
     st.caption(f"{len(disp)} compounds — click a row to inspect it")
@@ -278,4 +349,12 @@ def render(con, scope):
     if st.session_state.get("inspect_compound") not in options:
         st.session_state["inspect_compound"] = options[0]
     chosen = st.selectbox("Compound", options, key="inspect_compound", label_visibility="collapsed")
-    _detail(con, disp[disp["molecule_chembl_id"] == chosen].iloc[0], chosen)
+    fingerprints = data.load_fingerprints(con)
+    _detail(
+        con,
+        disp[disp["molecule_chembl_id"] == chosen].iloc[0],
+        chosen,
+        fingerprints=fingerprints,
+        catalog=catalog,
+        highlight_smarts=smarts,
+    )
