@@ -239,6 +239,8 @@ def test_view_modules_import():
         "compound_library",
         "sar",
         "selectivity",
+        "activity_cliffs",
+        "chemical_series",
         "chemical_space",
         "data_quality",
     ):
@@ -246,7 +248,7 @@ def test_view_modules_import():
 
 
 def test_compound_property_formatting_is_string():
-    from dashboard.views.compound_library import _fmt
+    from dashboard.compound_detail import _fmt
 
     assert _fmt(350.44) == "350.44"
     assert _fmt("N") == "N"

@@ -10,7 +10,7 @@ import base64
 import pandas as pd
 import streamlit as st
 
-from dashboard import chem, data
+from dashboard import chem, compound_detail, data
 
 
 def _structure_img(smiles, width: int = 320, height: int = 260) -> str | None:
@@ -40,9 +40,7 @@ def _series_column_config():
 
 def _member_column_config():
     return {
-        "molecule_chembl_id": st.column_config.LinkColumn(
-            "ChEMBL ID", display_text=r"(CHEMBL\d+)"
-        ),
+        "molecule_chembl_id": st.column_config.TextColumn("ChEMBL ID"),
         "pref_name": st.column_config.TextColumn("Name"),
         "best_pchembl": st.column_config.ProgressColumn(
             "Best pChEMBL", format="%.2f", min_value=0.0, max_value=14.0
@@ -128,13 +126,54 @@ def render(con, scope):
             f"[{row['top_compound']}]({_CHEMBL_URL.format(row['top_compound'])})"
         )
 
-    st.markdown("**Member compounds**")
+    st.markdown("**Member compounds** — click a row to inspect it")
     members = data.scaffold_members(con, int(row["scaffold_key"]))
-    members = members.drop(columns=["canonical_smiles"], errors="ignore").copy()
-    members["molecule_chembl_id"] = members["molecule_chembl_id"].map(_CHEMBL_URL.format)
-    st.dataframe(
-        members,
+    if members.empty:
+        return
+    members_disp = members.drop(columns=["canonical_smiles"], errors="ignore")
+    mevent = st.dataframe(
+        members_disp,
         hide_index=True,
         width="stretch",
         column_config=_member_column_config(),
+        on_select="rerun",
+        selection_mode="single-row",
+        key=f"members_{int(row['scaffold_key'])}",
     )
+    msel = mevent.selection.rows
+    midx = msel[0] if msel and msel[0] < len(members) else 0
+    member = members.iloc[midx]
+
+    st.divider()
+    _member_context(member, midx, members, row)
+
+    detail_row = data.compound_row(con, member["molecule_chembl_id"])
+    if detail_row is None:
+        st.info("No detailed record for this compound.")
+        return
+    compound_detail.render(
+        con,
+        detail_row,
+        member["molecule_chembl_id"],
+        fingerprints=data.load_fingerprints(con),
+        catalog=data.load_compound_catalog(con),
+    )
+
+
+def _member_context(member, idx, members, series_row):
+    """Where this compound sits within its scaffold series (rank + Δ to series stats)."""
+    best = member["best_pchembl"]
+    measured = int(members["best_pchembl"].notna().sum())
+    cols = st.columns(3)
+    if pd.notna(best):
+        # members are sorted by best_pchembl desc (nulls last), so idx+1 is the rank.
+        cols[0].metric("Potency rank in series", f"#{idx + 1} of {measured}")
+        cols[1].metric(
+            "Δ to series best", f"{best - series_row['max_pchembl']:+.2f}",
+            help="This compound's best pChEMBL minus the series' most potent",
+        )
+        cols[2].metric(
+            "Δ to series median", f"{best - series_row['median_pchembl']:+.2f}"
+        )
+    else:
+        cols[0].metric("Potency rank in series", "—", "no activity data")

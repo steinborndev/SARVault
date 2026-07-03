@@ -198,6 +198,30 @@ def scaffold_members(con: duckdb.DuckDBPyConnection, scaffold_key: int) -> pd.Da
     ).df()
 
 
+def compound_row(con: duckdb.DuckDBPyConnection, molecule_chembl_id: str):
+    """Full compound record for the shared detail card, by ChEMBL id.
+
+    Prefers the catalog (has best_pchembl / selectivity_index / has_pdb); falls back
+    to dim_compound for compounds absent from the catalog (e.g. a scaffold member
+    with no measured activity), filling the catalog-only columns with nulls.
+    """
+    try:
+        df = con.execute(
+            "select * from main_analytics.mart_compound_catalog where molecule_chembl_id = ?",
+            [molecule_chembl_id],
+        ).df()
+    except Exception:
+        df = pd.DataFrame()  # catalog mart absent in this warehouse
+    if len(df):
+        return df.iloc[0]
+    df = con.execute(
+        "select *, cast(null as double) as selectivity_index "
+        "from main_marts.dim_compound where molecule_chembl_id = ?",
+        [molecule_chembl_id],
+    ).df()
+    return df.iloc[0] if len(df) else None
+
+
 def compound_target_profile(con: duckdb.DuckDBPyConnection, compound_key: int) -> pd.DataFrame:
     """Per-target potency for one compound (its SAR fingerprint)."""
     return con.execute(

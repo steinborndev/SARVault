@@ -68,3 +68,20 @@ def test_series_covers_every_scaffolded_compound(series_db):
     finally:
         con.close()
     assert series_total == scaffolded
+
+
+def test_compound_row_fallback_and_missing(series_db):
+    # This build has no catalog mart, so compound_row must fall back to dim_compound
+    # (proving the try/except on the catalog table), and return None for unknown ids.
+    from dashboard import data
+
+    con = data.connect(str(series_db))
+    try:
+        row = data.compound_row(con, "CHEMBLM6")
+        assert row is not None
+        assert int(row["compound_key"]) >= 1
+        assert row.get("canonical_smiles")
+        assert "selectivity_index" in row.index  # filled null by the fallback
+        assert data.compound_row(con, "NOPE") is None
+    finally:
+        con.close()
