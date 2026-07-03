@@ -282,9 +282,9 @@ def test_scaffold_frame_and_framed_render():
         "COc1ccc(-c2ccccc2)cc1",
     ]
     frame = chem.scaffold_frame(scaffold, members)
-    assert frame is not None and len(frame) == 4  # (cx, cy, frame_radius, fence)
-    cx, cy, frame_radius, fence = frame
-    assert frame_radius > 0
+    assert frame is not None and len(frame) == 5  # (cx, cy, frame_hx, frame_hy, fence)
+    cx, cy, frame_hx, frame_hy, fence = frame
+    assert frame_hx > 0 and frame_hy > 0
 
     # Rendering a member with the shared frame still yields a valid SVG.
     svg = chem.smiles_to_svg(
