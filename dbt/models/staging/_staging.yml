@@ -64,3 +64,9 @@ models:
         tests: [unique, not_null]
       - name: ecfp4_hex
         tests: [not_null]
+
+  - name: stg_compound_embedding
+    description: "One row per compound: 2-D UMAP coordinates of its ECFP4 fingerprint."
+    columns:
+      - name: molecule_chembl_id
+        tests: [unique, not_null]

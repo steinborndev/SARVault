@@ -56,12 +56,33 @@ COMPOUND_CHEMINFO_SCHEMA = DataFrameSchema(
     strict=False,
 )
 
+# The UMAP embedding is another RDKit/umap compute; it carries its own provenance
+# (source = umap, version, seed) and 2-D coordinates per compound.
+_EMBEDDING_PROVENANCE = {
+    "_fetch_ts": Column(str, nullable=False),
+    "_source": Column(str, nullable=False),
+    "_umap_version": Column(str, nullable=False),
+    "_embedding_seed": Column(int, nullable=False),
+    "_row_hash": Column(str, nullable=False),
+}
+COMPOUND_EMBEDDING_SCHEMA = DataFrameSchema(
+    {
+        "molecule_chembl_id": Column(str, nullable=False),
+        "umap_x": Column(float, nullable=False),
+        "umap_y": Column(float, nullable=False),
+        **_EMBEDDING_PROVENANCE,
+    },
+    coerce=True,
+    strict=False,
+)
+
 SCHEMAS = {
     "activities": ACTIVITIES_SCHEMA,
     "molecules": MOLECULES_SCHEMA,
     "targets": TARGETS_SCHEMA,
     "assays": ASSAYS_SCHEMA,
     "compound_cheminfo": COMPOUND_CHEMINFO_SCHEMA,
+    "compound_embedding": COMPOUND_EMBEDDING_SCHEMA,
 }
 
 

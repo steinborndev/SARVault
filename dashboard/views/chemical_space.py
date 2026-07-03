@@ -25,12 +25,30 @@ def render(con, scope):
         st.info("No compounds in the current scope.")
         return
 
-    col_x, col_y = st.columns(2)
-    x_col = col_x.selectbox("X axis", _AXES, index=0)
-    y_col = col_y.selectbox("Y axis", _AXES, index=1)
     st.caption(f"{len(chem)} compounds")
-    st.plotly_chart(charts.chemical_space_scatter(chem, x_col, y_col), width="stretch")
-    st.plotly_chart(charts.property_histogram(chem, x_col), width="stretch")
+
+    has_embedding = "umap_x" in chem.columns and chem["umap_x"].notna().any()
+    modes = ["Structural embedding (UMAP)", "Property axes"] if has_embedding else ["Property axes"]
+    mode = st.radio("View", modes, horizontal=True)
+
+    if mode == "Structural embedding (UMAP)":
+        st.caption(
+            "2-D UMAP of the ECFP4 fingerprints — proximity ≈ structural similarity. "
+            "Colour reveals where potency (or an approval class, or a scaffold series) "
+            "concentrates in chemical space."
+        )
+        color_by = st.selectbox(
+            "Colour by", ["potency", "approval", "series"],
+            format_func={"potency": "best potency", "approval": "approval status",
+                         "series": "scaffold series"}.get,
+        )
+        st.plotly_chart(charts.embedding_scatter(chem, color_by), width="stretch")
+    else:
+        col_x, col_y = st.columns(2)
+        x_col = col_x.selectbox("X axis", _AXES, index=0)
+        y_col = col_y.selectbox("Y axis", _AXES, index=1)
+        st.plotly_chart(charts.chemical_space_scatter(chem, x_col, y_col), width="stretch")
+        st.plotly_chart(charts.property_histogram(chem, x_col), width="stretch")
 
     st.divider()
     st.subheader("Ligand efficiency")

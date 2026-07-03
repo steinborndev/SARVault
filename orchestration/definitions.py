@@ -105,7 +105,7 @@ def chembl_raw_extract(context: AssetExecutionContext):
         yield Output(None, output_name=table, metadata={"rows": rows, "path": str(path)})
 
 
-# --- cheminformatics compute (governed source for the fingerprint models) --------
+# --- cheminformatics compute (governed sources for the fingerprint/embedding models) --
 @asset(
     key=AssetKey(["raw", "compound_cheminfo"]),
     deps=[AssetKey(["raw", "molecules"])],
@@ -123,6 +123,25 @@ def compound_cheminfo(context: AssetExecutionContext) -> MaterializeResult:
     out = main(_raw_dir())
     rows = duckdb.sql(f"select count(*) from read_parquet('{out}')").fetchone()[0]
     context.log.info(f"cheminfo: {rows} rows -> {out}")
+    return MaterializeResult(metadata={"rows": int(rows), "path": str(out)})
+
+
+@asset(
+    key=AssetKey(["raw", "compound_embedding"]),
+    deps=[AssetKey(["raw", "compound_cheminfo"])],
+    group_name="extract",
+    compute_kind="umap",
+)
+def compound_embedding(context: AssetExecutionContext) -> MaterializeResult:
+    """Fit a 2-D UMAP embedding over the ECFP4 fingerprints (deterministic seed).
+
+    Reads ``raw_compound_cheminfo.parquet`` and lands ``raw_compound_embedding.parquet``.
+    """
+    from extract.embedding import main
+
+    out = main(_raw_dir())
+    rows = duckdb.sql(f"select count(*) from read_parquet('{out}')").fetchone()[0]
+    context.log.info(f"embedding: {rows} rows -> {out}")
     return MaterializeResult(metadata={"rows": int(rows), "path": str(out)})
 
 
@@ -181,7 +200,7 @@ daily_refresh = ScheduleDefinition(
 
 
 defs = Definitions(
-    assets=[chembl_raw_extract, compound_cheminfo, sarvault_dbt_assets],
+    assets=[chembl_raw_extract, compound_cheminfo, compound_embedding, sarvault_dbt_assets],
     asset_checks=[fact_activity_not_empty, pchembl_within_range],
     jobs=[sarvault_pipeline, sarvault_transform],
     schedules=[daily_refresh],

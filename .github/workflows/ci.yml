@@ -22,7 +22,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -e ".[dev,extract,dbt,dashboard,orchestration]"
+          pip install -e ".[dev,extract,dbt,dashboard,orchestration,embedding]"
       - name: Lint
         run: ruff check .
       - name: dbt build (fixtures)

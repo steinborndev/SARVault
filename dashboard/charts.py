@@ -193,3 +193,37 @@ def cliff_scatter(df) -> go.Figure:
     fig.update_traces(marker={"size": 9, "opacity": 0.75})
     fig.update_layout(height=460, legend={"orientation": "h", "y": -0.25})
     return fig
+
+
+def embedding_scatter(df, color_by: str = "potency", top_scaffolds: int = 10) -> go.Figure:
+    """2-D UMAP embedding of the ECFP4 fingerprints; structural neighbourhoods.
+
+    ``color_by`` is one of 'potency' (continuous best pChEMBL), 'approval'
+    (approved vs. research) or 'series' (the largest Murcko scaffolds, the rest
+    collapsed to 'other'). Hover shows the compound and its best target.
+    """
+    plot_df = df.dropna(subset=["umap_x", "umap_y"]).copy()
+    hover = ["molecule_chembl_id", "best_pchembl", "best_target"]
+
+    if color_by == "approval":
+        plot_df["approval"] = plot_df["is_approved_drug"].map({True: "approved", False: "research"})
+        fig = px.scatter(plot_df, x="umap_x", y="umap_y", color="approval", hover_data=hover)
+    elif color_by == "series":
+        top = plot_df["murcko_scaffold_smiles"].value_counts().head(top_scaffolds).index
+        plot_df["series"] = plot_df["murcko_scaffold_smiles"].where(
+            plot_df["murcko_scaffold_smiles"].isin(top), other="other"
+        ).fillna("acyclic")
+        fig = px.scatter(plot_df, x="umap_x", y="umap_y", color="series", hover_data=hover)
+    else:  # potency
+        fig = px.scatter(
+            plot_df, x="umap_x", y="umap_y", color="best_pchembl",
+            color_continuous_scale="Viridis", hover_data=hover,
+        )
+
+    fig.update_traces(marker={"size": 8, "opacity": 0.8})
+    fig.update_layout(
+        height=560,
+        xaxis_title="UMAP-1", yaxis_title="UMAP-2",
+        xaxis={"showticklabels": False}, yaxis={"showticklabels": False},
+    )
+    return fig

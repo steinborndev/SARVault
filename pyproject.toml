@@ -32,6 +32,9 @@ orchestration = [
   # dagster-dbt drives dbt via the CLI, so the `dbt` extra (dbt-duckdb) must be
   # installed alongside this one to run the pipeline (CI installs both).
 ]
+embedding = [
+  "umap-learn>=0.5",  # 2-D chemical-space embedding (extract/embedding.py)
+]
 dashboard = [
   "streamlit>=1.36",
   "plotly>=5.22",

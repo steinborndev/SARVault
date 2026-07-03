@@ -55,10 +55,13 @@ python -m extract.run
 # 2. compute ECFP4 fingerprints + Murcko scaffolds into raw/ (RDKit)
 python -m extract.cheminfo
 
-# 3. build the warehouse (staging -> marts -> analytics) + run dbt tests
+# 3. project the fingerprints into a 2-D UMAP embedding (chemical space)
+python -m extract.embedding
+
+# 4. build the warehouse (staging -> marts -> analytics) + run dbt tests
 dbt build --project-dir dbt --profiles-dir dbt/profiles
 
-# 4. launch the dashboard
+# 5. launch the dashboard
 streamlit run dashboard/app.py
 ```
 
@@ -104,6 +107,11 @@ into interactive structure search:
 - **Chemical series** — the **Chemical Series** page groups compounds by their
   Bemis-Murcko scaffold, showing each series' size, potency spread and target reach,
   and drilling into the shared scaffold and its member compounds.
+- **Structural embedding** — the **Chemical Space** page can project every compound
+  into a 2-D UMAP of its ECFP4 fingerprint (proximity ≈ structural similarity),
+  coloured by potency, approval class or scaffold series, so it's visible where
+  potency concentrates in chemical space. Coordinates are precomputed once in the
+  pipeline (fixed seed) and the physicochemical property scatter remains a toggle.
 
 To characterise a real build (survival through the filters, scaffold series vs.
 singletons, per-target pair budget, and the activity-cliff count across a

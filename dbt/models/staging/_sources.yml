@@ -14,3 +14,4 @@ sources:
       - name: pdbe_structures
       - name: pdbe_summary
       - name: compound_cheminfo
+      - name: compound_embedding
