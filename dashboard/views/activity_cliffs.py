@@ -132,6 +132,8 @@ def render(con, scope):
         "same_scaffold", "is_identical_fp",
     ]
     st.caption("Ranked by SALI — click a row, or click a point in the plot above.")
+    # Mark the top-SALI pair on first open so the highlighted row matches the detail below.
+    logic.preselect_first_row(st.session_state, "cliff_rows")
     table_event = st.dataframe(
         ranked[list_cols],
         hide_index=True,

@@ -219,6 +219,23 @@ def test_ro5_breakdown():
     assert missing["items"][0]["pass"] is None
 
 
+def test_preselect_first_row():
+    # First open: an absent key is seeded so row 0 is marked (matches the detail below).
+    state = {}
+    logic.preselect_first_row(state, "lib_rows")
+    assert state["lib_rows"] == {"selection": {"rows": [0], "columns": [], "cells": []}}
+
+    # A user's existing selection is never overridden on later reruns.
+    state["lib_rows"] = {"selection": {"rows": [3], "columns": [], "cells": []}}
+    logic.preselect_first_row(state, "lib_rows")
+    assert state["lib_rows"]["selection"]["rows"] == [3]
+
+    # Independent keys (e.g. per-scaffold member tables) are seeded independently.
+    logic.preselect_first_row(state, "members_42")
+    assert state["members_42"]["selection"]["rows"] == [0]
+    assert "lib_rows" in state and state["lib_rows"]["selection"]["rows"] == [3]
+
+
 def test_overview_metrics_respects_scope():
     target_sar, catalog = _scope_fixtures()
     all_m = logic.overview_metrics(target_sar, catalog, {})

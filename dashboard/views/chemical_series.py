@@ -10,7 +10,7 @@ import base64
 import pandas as pd
 import streamlit as st
 
-from dashboard import chem, compound_detail, data
+from dashboard import chem, compound_detail, data, logic
 
 
 def _structure_img(smiles, width: int = 320, height: int = 260) -> str | None:
@@ -92,6 +92,8 @@ def render(con, scope):
         "murcko_scaffold_smiles", "n_compounds", "n_targets",
         "median_pchembl", "max_pchembl", "pchembl_range", "top_compound",
     ]
+    # Mark the top series on first open so the highlighted row matches the detail below.
+    logic.preselect_first_row(st.session_state, "series_rows")
     event = st.dataframe(
         view[list_cols],
         hide_index=True,
@@ -132,6 +134,10 @@ def render(con, scope):
     if members.empty:
         return
     members_disp = members.drop(columns=["canonical_smiles"], errors="ignore")
+    # The member table is keyed per scaffold, so opening a new series produces a fresh
+    # key — seeding row 0 marks the first member of whichever series is being viewed.
+    members_key = f"members_{int(row['scaffold_key'])}"
+    logic.preselect_first_row(st.session_state, members_key)
     mevent = st.dataframe(
         members_disp,
         hide_index=True,
@@ -139,7 +145,7 @@ def render(con, scope):
         column_config=_member_column_config(),
         on_select="rerun",
         selection_mode="single-row",
-        key=f"members_{int(row['scaffold_key'])}",
+        key=members_key,
     )
     msel = mevent.selection.rows
     midx = msel[0] if msel and msel[0] < len(members) else 0

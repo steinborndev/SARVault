@@ -110,6 +110,8 @@ def render(con, scope):
     st.caption(f"{len(disp)} compounds — click a row to inspect it")
     # Tolerate a warehouse built before has_pdb existed: only show present columns.
     list_cols = [c for c in _LIST_COLS if c in disp.columns]
+    # Mark the top compound on first open so the highlighted row matches the detail below.
+    logic.preselect_first_row(st.session_state, "lib_rows")
     event = st.dataframe(
         disp[list_cols],
         hide_index=True,

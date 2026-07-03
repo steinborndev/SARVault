@@ -200,3 +200,23 @@ def filter_cliffs(cliffs, min_tanimoto: float, min_delta: float, include_identic
     if not include_identical:
         view = view[~view["is_identical_fp"].astype(bool)]
     return view
+
+
+def preselect_first_row(state, key: str) -> None:
+    """Seed a selectable ``st.dataframe`` so its first row is marked on first render.
+
+    Streamlit only paints a row-selection highlight when the widget's session-state
+    entry carries a selection. On a tab's first render that entry is absent, so the
+    detail panel below already shows the top row while no row is visually marked —
+    the user can't tell which record the detail describes. Seeding row 0 *before* the
+    widget is instantiated makes the highlighted row and the shown detail agree from
+    the outset.
+
+    Only seeds when ``key`` is absent, so a user's later click (or a switch to a
+    different table with its own key) is never overridden. ``state`` is any mapping
+    (``st.session_state`` at runtime, a plain dict in tests). Older Streamlit builds
+    that predate programmatic dataframe selection simply ignore the seed rather than
+    erroring, so the detail still renders — it just isn't highlighted.
+    """
+    if key not in state:
+        state[key] = {"selection": {"rows": [0], "columns": [], "cells": []}}
