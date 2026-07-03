@@ -121,6 +121,32 @@ Tanimoto × Δ-pChEMBL grid), run the profiler against the warehouse:
 python -m scripts.profile_sar --db warehouse.duckdb --out docs/DATA_PROFILE.md
 ```
 
+## Change tracking across ChEMBL releases
+
+The warehouse models *how the data changes over time*, not just its current state:
+
+- **Incremental fact.** `fact_activity` is a dbt **incremental** model keyed on
+  `activity_id`. ChEMBL activities are append-only with a stable id, so a refresh only
+  scans activities not already loaded: re-running an unchanged release is a no-op, and a
+  new release inserts just its delta (idempotent via `delete+insert` on the key).
+- **SCD2 status history.** A dbt **snapshot** (`compound_status`) records a Type-2
+  history of each compound's development status (`max_phase`, `is_approved_drug`,
+  `pref_name`), keyed on the ChEMBL natural key `molecule_chembl_id`. When a payload
+  advances — e.g. from a research compound to an approved drug — the snapshot closes the
+  old validity window and opens a new one, so the warehouse can answer *when* a
+  compound's approval status changed across releases.
+
+The two behaviours are proven end to end against two pinned "releases": the v1 fixture
+and a documented v2 delta (`tests/fixtures/build_raw_v2.py`, in which `CHEMBLM2` advances
+`max_phase` 2 → 4 and two new activities appear). `tests/test_snapshot.py` builds both on
+one DuckDB file and asserts the no-op re-run, the delta insert, and the second SCD2
+window. To run the demo locally:
+
+```bash
+python tests/fixtures/build_raw_v2.py          # (re)generate the v2 delta fixture
+pytest tests/test_snapshot.py -q               # incremental + SCD2 across two releases
+```
+
 ## Data provenance & license
 
 Bioactivity data originates from **ChEMBL** (EMBL-EBI), pinned to a specific

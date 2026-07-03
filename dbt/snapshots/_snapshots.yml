@@ -1,0 +1,19 @@
+version: 2
+
+snapshots:
+  - name: compound_status
+    description: >
+      Type-2 slowly-changing history of a compound's development status
+      (max_phase, is_approved_drug, pref_name) keyed on the ChEMBL natural key
+      molecule_chembl_id. A new validity window opens each time the status changes
+      across ChEMBL releases, recording when a payload progressed toward approval.
+    columns:
+      - name: molecule_chembl_id
+        description: "ChEMBL natural key (stable across releases)."
+        tests:
+          - not_null
+      - name: dbt_scd_id
+        description: "dbt snapshot surrogate key (one row per validity window)."
+        tests:
+          - unique
+          - not_null
