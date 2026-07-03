@@ -56,3 +56,11 @@ models:
               arguments:
                 to: ref('stg_targets')
                 field: target_chembl_id
+
+  - name: stg_compound_cheminfo
+    description: "One row per compound: ECFP4 fingerprint + Murcko scaffold (RDKit)."
+    columns:
+      - name: molecule_chembl_id
+        tests: [unique, not_null]
+      - name: ecfp4_hex
+        tests: [not_null]

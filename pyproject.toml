@@ -19,6 +19,7 @@ extract = [
   "pyarrow>=15.0",
   "pandera>=0.20",
   "duckdb>=1.0",
+  "rdkit>=2023.9",  # cheminfo stage: ECFP4 fingerprints + Murcko scaffolds
 ]
 dbt = [
   "dbt-duckdb>=1.8",

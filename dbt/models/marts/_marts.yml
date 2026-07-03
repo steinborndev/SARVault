@@ -25,6 +25,14 @@ models:
       - name: assay_chembl_id
         tests: [unique, not_null]
 
+  - name: dim_scaffold
+    description: "Bemis-Murcko scaffold dimension (one row per distinct scaffold)."
+    columns:
+      - name: scaffold_key
+        tests: [unique, not_null]
+      - name: murcko_scaffold_smiles
+        tests: [unique, not_null]
+
   - name: fact_activity
     description: "Activity fact (one row per measured activity)."
     columns:

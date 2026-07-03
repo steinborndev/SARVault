@@ -52,10 +52,13 @@ End-to-end, from the repo root:
 # 1. extract the scoped ChEMBL slice into raw/
 python -m extract.run
 
-# 2. build the warehouse (staging -> marts -> analytics) + run dbt tests
+# 2. compute ECFP4 fingerprints + Murcko scaffolds into raw/ (RDKit)
+python -m extract.cheminfo
+
+# 3. build the warehouse (staging -> marts -> analytics) + run dbt tests
 dbt build --project-dir dbt --profiles-dir dbt/profiles
 
-# 3. launch the dashboard
+# 4. launch the dashboard
 streamlit run dashboard/app.py
 ```
 
@@ -68,8 +71,11 @@ dagster dev            # UI + lineage graph at http://localhost:3000
 ## Project status
 
 Core pipeline **built end to end**: config-driven ChEMBL extract with provenance;
-dbt medallion (staging → star-schema marts → analytical marts) on DuckDB; UniChem
-and PDBe cross-reference enrichment with an embedded 3D co-crystal viewer; and a
+dbt medallion (staging → star-schema marts → analytical marts) on DuckDB; an RDKit
+cheminfo stage deriving ECFP4 fingerprints and Bemis–Murcko scaffolds
+(`dim_scaffold`, `mart_compound_fingerprint`) as the substrate for similarity,
+substructure and scaffold analytics; UniChem and PDBe cross-reference enrichment
+with an embedded 3D co-crystal viewer; and a
 Streamlit dashboard (deployed on Streamlit Community Cloud). The full lineage is
 orchestrated as a **Dagster asset graph** with dbt tests surfaced as asset checks
 (see [`docs/ORCHESTRATION.md`](./docs/ORCHESTRATION.md)). The warehouse is

@@ -30,8 +30,10 @@ from dagster import (
     AssetOut,
     AssetSelection,
     Definitions,
+    MaterializeResult,
     Output,
     ScheduleDefinition,
+    asset,
     asset_check,
     define_asset_job,
     multi_asset,
@@ -103,6 +105,27 @@ def chembl_raw_extract(context: AssetExecutionContext):
         yield Output(None, output_name=table, metadata={"rows": rows, "path": str(path)})
 
 
+# --- cheminformatics compute (governed source for the fingerprint models) --------
+@asset(
+    key=AssetKey(["raw", "compound_cheminfo"]),
+    deps=[AssetKey(["raw", "molecules"])],
+    group_name="extract",
+    compute_kind="rdkit",
+)
+def compound_cheminfo(context: AssetExecutionContext) -> MaterializeResult:
+    """Derive ECFP4 fingerprints + Murcko scaffolds from the landed molecules.
+
+    Deterministic given a pinned RDKit version; reads ``raw_molecules.parquet`` and
+    lands ``raw_compound_cheminfo.parquet``, which the dbt cheminfo source reads.
+    """
+    from extract.cheminfo import main
+
+    out = main(_raw_dir())
+    rows = duckdb.sql(f"select count(*) from read_parquet('{out}')").fetchone()[0]
+    context.log.info(f"cheminfo: {rows} rows -> {out}")
+    return MaterializeResult(metadata={"rows": int(rows), "path": str(out)})
+
+
 # --- explicit warehouse checks --------------------------------------------------
 @asset_check(name="fact_activity_not_empty", asset=_FACT_ACTIVITY, blocking=True)
 def fact_activity_not_empty() -> AssetCheckResult:
@@ -158,7 +181,7 @@ daily_refresh = ScheduleDefinition(
 
 
 defs = Definitions(
-    assets=[chembl_raw_extract, sarvault_dbt_assets],
+    assets=[chembl_raw_extract, compound_cheminfo, sarvault_dbt_assets],
     asset_checks=[fact_activity_not_empty, pchembl_within_range],
     jobs=[sarvault_pipeline, sarvault_transform],
     schedules=[daily_refresh],

@@ -94,3 +94,23 @@ models:
         tests: [not_null]
       - name: pdb_id
         tests: [not_null]
+
+  - name: mart_compound_fingerprint
+    description: "Per-compound ECFP4 fingerprint + Murcko scaffold; substrate for similarity, substructure, series and activity-cliff analytics."
+    columns:
+      - name: compound_key
+        tests:
+          - unique
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_compound')
+                field: compound_key
+      - name: scaffold_key
+        tests:
+          - relationships:
+              arguments:
+                to: ref('dim_scaffold')
+                field: scaffold_key
+      - name: ecfp4_hex
+        tests: [not_null]
