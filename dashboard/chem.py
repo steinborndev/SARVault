@@ -66,13 +66,19 @@ def smiles_to_svg(
     scaffold_smiles: str | None = None,
     align_to_scaffold: bool = False,
     highlight_scaffold: bool = False,
+    frame: tuple | None = None,
 ) -> str | None:
     """Render a SMILES to a 2D SVG.
 
     Optionally (a) highlights a SMARTS substructure (compound-library search), and/or
     (b) orients the depiction so a shared Bemis-Murcko ``scaffold_smiles`` sits in a
-    fixed frame — so that clicking through a series keeps the common core still and only
-    the substituents move — with the core optionally given a subtle highlight.
+    fixed frame, so that clicking through a series keeps the common core still and only
+    the substituents move, with the core optionally given a subtle highlight.
+
+    When ``frame`` (a shared min_x, min_y, max_x, max_y window from ``scaffold_frame``)
+    is given and the member aligns, the drawing scale and origin are pinned to that
+    window, so the aligned core lands on identical pixels for every member of the series
+    rather than being re-centred and re-scaled per molecule.
 
     Falls back to a plain depiction when the SMARTS is invalid/unmatched or the scaffold
     does not substructure-match (rare aromaticity/kekulisation cases), so a single odd
@@ -91,11 +97,13 @@ def smiles_to_svg(
     template = _template_mol(scaffold_smiles) if scaffold_smiles else None
 
     # Constrain the depiction to the scaffold's coordinates (shared reference frame).
+    aligned = False
     if template is not None and align_to_scaffold:
         try:
             rdDepictor.GenerateDepictionMatching2DStructure(mol, template)
+            aligned = True
         except (ValueError, RuntimeError):
-            rdDepictor.Compute2DCoords(mol)  # member doesn't match — plain layout
+            rdDepictor.Compute2DCoords(mol)  # member doesn't match, plain layout
 
     highlight_atoms: list[int] = []
     highlight_bonds: list[int] = []
@@ -123,6 +131,13 @@ def smiles_to_svg(
                 highlight_atoms.extend(m)
 
     drawer = rdMolDraw2D.MolDraw2DSVG(width, height)
+    # Pin scale + origin to the shared window so the aligned core is pixel-stable across
+    # the series (only substituents move); skipped when the member could not be aligned.
+    if aligned and frame is not None:
+        from rdkit.Geometry import Point2D
+
+        min_x, min_y, max_x, max_y = frame
+        drawer.SetScale(width, height, Point2D(min_x, min_y), Point2D(max_x, max_y))
     drawer.DrawMolecule(
         mol,
         highlightAtoms=highlight_atoms or None,
@@ -132,3 +147,45 @@ def smiles_to_svg(
     )
     drawer.FinishDrawing()
     return drawer.GetDrawingText()
+
+
+def scaffold_frame(scaffold_smiles: str, member_smiles, pad: float = 1.2) -> tuple | None:
+    """Shared drawing window (min_x, min_y, max_x, max_y) for a scaffold's members.
+
+    Aligns every member to the scaffold and returns the padded union of their 2D
+    coordinates. Passing this same window to ``smiles_to_svg`` for each member fixes the
+    scale and origin, so the shared core draws at identical pixels across the series and
+    only the substituents move. Members that do not match the scaffold are skipped so a
+    stray compound cannot distort the frame. Returns None when the scaffold is unusable
+    or no member yields coordinates.
+    """
+    if not scaffold_smiles:
+        return None
+    from rdkit import Chem
+    from rdkit.Chem import rdDepictor
+
+    template = _template_mol(scaffold_smiles)
+    if template is None:
+        return None
+
+    xs: list[float] = []
+    ys: list[float] = []
+    for smi in member_smiles:
+        if not smi:
+            continue
+        mol = Chem.MolFromSmiles(smi)
+        if mol is None:
+            continue
+        try:
+            rdDepictor.GenerateDepictionMatching2DStructure(mol, template)
+        except (ValueError, RuntimeError):
+            continue
+        conf = mol.GetConformer()
+        for i in range(mol.GetNumAtoms()):
+            p = conf.GetAtomPosition(i)
+            xs.append(p.x)
+            ys.append(p.y)
+
+    if not xs:
+        return None
+    return (min(xs) - pad, min(ys) - pad, max(xs) + pad, max(ys) + pad)

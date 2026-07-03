@@ -207,7 +207,7 @@ def preselect_first_row(state, key: str) -> None:
 
     Streamlit only paints a row-selection highlight when the widget's session-state
     entry carries a selection. On a tab's first render that entry is absent, so the
-    detail panel below already shows the top row while no row is visually marked —
+    detail panel below already shows the top row while no row is visually marked -
     the user can't tell which record the detail describes. Seeding row 0 *before* the
     widget is instantiated makes the highlighted row and the shown detail agree from
     the outset.
@@ -216,7 +216,7 @@ def preselect_first_row(state, key: str) -> None:
     different table with its own key) is never overridden. ``state`` is any mapping
     (``st.session_state`` at runtime, a plain dict in tests). Older Streamlit builds
     that predate programmatic dataframe selection simply ignore the seed rather than
-    erroring, so the detail still renders — it just isn't highlighted.
+    erroring, so the detail still renders - it just isn't highlighted.
     """
     if key not in state:
         state[key] = {"selection": {"rows": [0], "columns": [], "cells": []}}
@@ -226,8 +226,8 @@ def step_selection(state, key: str, delta: int, n: int) -> None:
     """Move a single-row ``st.dataframe`` selection by ``delta``, clamped to [0, n-1].
 
     Used by the Chemical Series prev/next controls to walk the member table without a
-    row click. Runs as a button ``on_click`` callback — i.e. *before* the dataframe is
-    re-instantiated on the ensuing rerun — so writing the selection here is picked up by
+    row click. Runs as a button ``on_click`` callback - i.e. *before* the dataframe is
+    re-instantiated on the ensuing rerun - so writing the selection here is picked up by
     the widget, the same mechanism ``preselect_first_row`` relies on. ``state`` is any
     mapping (``st.session_state`` at runtime, a plain dict in tests).
     """

@@ -307,8 +307,8 @@ def test_compound_property_formatting_is_string():
     assert _fmt(350.44) == "350.44"
     assert _fmt("N") == "N"
     assert _fmt(3) == "3"
-    assert _fmt(None) == "—"
-    assert _fmt(float("nan")) == "—"
+    assert _fmt(None) == "-"
+    assert _fmt(float("nan")) == "-"
 
 
 # --- warehouse bootstrap (cloud fetch-at-boot) ---

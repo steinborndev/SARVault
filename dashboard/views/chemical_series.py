@@ -1,4 +1,4 @@
-"""Chemical Series page — compounds grouped into Bemis-Murcko scaffold series.
+"""Chemical Series page - compounds grouped into Bemis-Murcko scaffold series.
 
 SAR is reasoned about per series, not per isolated compound. This page lists the
 scaffolds present in the set with their size, potency spread and target reach, and
@@ -11,6 +11,12 @@ import pandas as pd
 import streamlit as st
 
 from dashboard import chem, compound_detail, data, logic
+
+
+@st.cache_data(show_spinner=False)
+def _series_frame(scaffold_smiles, member_smiles):
+    """Cached shared drawing window for a series (recomputed only when it changes)."""
+    return chem.scaffold_frame(scaffold_smiles, list(member_smiles))
 
 
 def _structure_img(smiles, width: int = 320, height: int = 260) -> str | None:
@@ -55,7 +61,7 @@ _CHEMBL_URL = "https://www.ebi.ac.uk/chembl/compound_report_card/{}/"
 def render(con, scope):
     st.header("Chemical series")
     st.write(
-        "Compounds grouped by their Bemis-Murcko scaffold — the chemical series a "
+        "Compounds grouped by their Bemis-Murcko scaffold - the chemical series a "
         "medicinal chemist reasons about. Each row is a scaffold shared by two or more "
         "compounds; a wide potency range within one series is where the SAR lives."
     )
@@ -86,7 +92,7 @@ def render(con, scope):
     view = series[series["n_compounds"] >= min_size].sort_values(
         sort_by, ascending=False
     ).reset_index(drop=True)
-    st.caption(f"{len(view)} multi-compound series — click a row to open it")
+    st.caption(f"{len(view)} multi-compound series - click a row to open it")
 
     list_cols = [
         "murcko_scaffold_smiles", "n_compounds", "n_targets",
@@ -122,20 +128,20 @@ def render(con, scope):
         m[0].metric("Compounds", int(row["n_compounds"]))
         m[1].metric("Targets", int(row["n_targets"]))
         rng = row["pchembl_range"]
-        m[2].metric("Potency range", f"{rng:.2f}" if pd.notna(rng) else "—")
+        m[2].metric("Potency range", f"{rng:.2f}" if pd.notna(rng) else "-")
         st.caption(
             f"Median best-pChEMBL {row['median_pchembl']:.2f} · most potent member "
             f"[{row['top_compound']}]({_CHEMBL_URL.format(row['top_compound'])})"
         )
 
     st.divider()
-    st.markdown("**Member compounds** — click a row to inspect it")
+    st.markdown("**Member compounds** - click a row to inspect it")
     members = data.scaffold_members(con, int(row["scaffold_key"]))
     if members.empty:
         return
     members_disp = members.drop(columns=["canonical_smiles"], errors="ignore")
     # The member table is keyed per scaffold, so opening a new series produces a fresh
-    # key — seeding row 0 marks the first member of whichever series is being viewed.
+    # key - seeding row 0 marks the first member of whichever series is being viewed.
     members_key = f"members_{int(row['scaffold_key'])}"
     logic.preselect_first_row(st.session_state, members_key)
     mevent = st.dataframe(
@@ -169,6 +175,13 @@ def render(con, scope):
     if detail_row is None:
         st.info("No detailed record for this compound.")
         return
+    # Shared drawing window so the aligned core is pixel-stable across the whole series
+    # (computed once per series and cached, not per step). Only needed when aligning.
+    frame = (
+        _series_frame(row["murcko_scaffold_smiles"], tuple(members["canonical_smiles"].fillna("")))
+        if align
+        else None
+    )
     compound_detail.render(
         con,
         detail_row,
@@ -178,36 +191,41 @@ def render(con, scope):
         scaffold_smiles=row["murcko_scaffold_smiles"],
         align_to_scaffold=align,
         highlight_scaffold=highlight,
+        frame=frame,
     )
 
 
 def _member_context(member, idx, members, series_row, members_key):
-    """Where this compound sits within its scaffold series (rank + Δ to series stats).
+    """Where this compound sits within its scaffold series (rank + Delta to series stats).
 
-    The prev/next buttons walk the member table (potency order) without a row click,
-    by moving the dataframe's selection via ``logic.step_selection`` — pairing with the
-    scaffold-aligned depiction so the core stays fixed as you step through substituents.
+    The small prev/next buttons sit inline with the rank and walk the member table
+    (potency order) without a row click, by moving the dataframe's selection via
+    ``logic.step_selection`` - pairing with the scaffold-aligned depiction so the core
+    stays fixed as you step through substituents.
     """
     best = member["best_pchembl"]
     measured = int(members["best_pchembl"].notna().sum())
     n = len(members)
-    cols = st.columns([3, 1, 1, 4, 4], vertical_alignment="center")
+    # Small arrows a short gap to the right of the rank, aligned to its value line.
+    cols = st.columns(
+        [2.4, 0.4, 0.5, 0.5, 3, 3], gap="small", vertical_alignment="bottom"
+    )
     # members are sorted by best_pchembl desc (nulls last), so idx+1 is the rank.
-    rank = f"#{idx + 1} of {measured}" if pd.notna(best) else "—"
+    rank = f"#{idx + 1} of {measured}" if pd.notna(best) else "-"
     cols[0].metric("Potency rank in series", rank)
-    cols[1].button(
-        "◀", key=f"prev_{members_key}", type="primary", width="stretch",
+    cols[2].button(
+        "◀", key=f"prev_{members_key}", type="primary",
         disabled=idx <= 0, help="Previous (more potent) member",
         on_click=logic.step_selection, args=(st.session_state, members_key, -1, n),
     )
-    cols[2].button(
-        "▶", key=f"next_{members_key}", type="primary", width="stretch",
+    cols[3].button(
+        "▶", key=f"next_{members_key}", type="primary",
         disabled=idx >= n - 1, help="Next (less potent) member",
         on_click=logic.step_selection, args=(st.session_state, members_key, 1, n),
     )
     if pd.notna(best):
-        cols[3].metric(
+        cols[4].metric(
             "Δ to series best", f"{best - series_row['max_pchembl']:+.2f}",
             help="This compound's best pChEMBL minus the series' most potent",
         )
-        cols[4].metric("Δ to series median", f"{best - series_row['median_pchembl']:+.2f}")
+        cols[5].metric("Δ to series median", f"{best - series_row['median_pchembl']:+.2f}")

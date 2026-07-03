@@ -35,7 +35,7 @@ _METHOD_SHORT = {
 
 def _fmt(value) -> str:
     if value is None or (isinstance(value, float) and pd.isna(value)):
-        return "—"
+        return "-"
     if isinstance(value, float):
         return f"{value:.2f}"
     return str(value)
@@ -43,13 +43,13 @@ def _fmt(value) -> str:
 
 def _num(value) -> str:
     if value is None or (isinstance(value, float) and pd.isna(value)):
-        return "—"
+        return "-"
     fv = round(float(value), 1)
     return str(int(fv)) if fv == int(fv) else f"{fv:.1f}"
 
 
 def _mfmt(value, decimals: int) -> str:
-    return f"{value:.{decimals}f}" if pd.notna(value) else "—"
+    return f"{value:.{decimals}f}" if pd.notna(value) else "-"
 
 
 def _pdb_meta(rec) -> str:
@@ -66,7 +66,7 @@ def _pdb_meta(rec) -> str:
 def _pdb_label(rec) -> str:
     pid = str(rec["pdb_id"]).upper()
     title = rec.get("title")
-    head = f"{pid} — {title}" if isinstance(title, str) and title else pid
+    head = f"{pid} - {title}" if isinstance(title, str) and title else pid
     meta = _pdb_meta(rec)
     return f"{head} · {meta}" if meta else head
 
@@ -83,7 +83,7 @@ def _ro5_line(row) -> str:
     breakdown = logic.ro5_breakdown(row)
     marks = []
     for item in breakdown["items"]:
-        mark = "✓" if item["pass"] else ("✗" if item["pass"] is False else "—")
+        mark = "✓" if item["pass"] else ("✗" if item["pass"] is False else "-")
         marks.append(f"{item['label']} {mark} ({_num(item['value'])})")
     line = " · ".join(marks) + f" → {breakdown['violations']} violation(s)"
     official = row.get("num_ro5_violations")
@@ -121,17 +121,19 @@ def render(
     scaffold_smiles=None,
     align_to_scaffold=False,
     highlight_scaffold=False,
+    frame=None,
 ):
     """Render the full compound detail card for ``row`` (identified by ``chosen``).
 
     When a ``scaffold_smiles`` is supplied (Chemical Series page), the structure can be
     oriented to that shared scaffold (``align_to_scaffold``) and the core subtly marked
-    (``highlight_scaffold``); the Compound Library passes neither, so its depiction is
-    unchanged.
+    (``highlight_scaffold``); a shared ``frame`` keeps the aligned core at a fixed size
+    and position across the series. The Compound Library passes none of these, so its
+    depiction is unchanged.
     """
     name = row.get("pref_name")
     has_name = isinstance(name, str) and name.strip() and name != chosen
-    title = f"{chosen} — {name}" if has_name else chosen
+    title = f"{chosen} - {name}" if has_name else chosen
     suffix = " :green[· approved]" if bool(row.get("is_approved_drug")) else ""
 
     st.markdown(f"### {title}{suffix}")
@@ -144,6 +146,7 @@ def render(
             scaffold_smiles=scaffold_smiles,
             align_to_scaffold=align_to_scaffold,
             highlight_scaffold=highlight_scaffold,
+            frame=frame,
         )
         if svg:
             st.markdown(_structure_html(svg), unsafe_allow_html=True)
@@ -167,7 +170,7 @@ def render(
         if len(profile) == 1:
             p = profile.iloc[0]
             st.markdown(
-                f"**{p['target']}** — median pChEMBL {p['median_pchembl']:.2f} · "
+                f"**{p['target']}** - median pChEMBL {p['median_pchembl']:.2f} · "
                 f"max {p['max_pchembl']:.2f} · {int(p['n_measurements'])} measurement(s)"
             )
         elif len(profile) > 1:
@@ -194,7 +197,7 @@ def render(
 
     pdb = data.compound_pdb_entries(con, int(row["compound_key"]))
     if not pdb.empty:
-        with st.expander(f"3D co-crystal structure (PDBe) — {len(pdb)} entries"):
+        with st.expander(f"3D co-crystal structure (PDBe) - {len(pdb)} entries"):
             labels = {rec["pdb_id"]: _pdb_label(rec) for _, rec in pdb.iterrows()}
             pick = st.selectbox(
                 "PDB entry",
@@ -219,7 +222,7 @@ def render(
     )
     if has_fp:
         st.divider()
-        st.markdown("**Structural analogs** — nearest compounds by ECFP4 Tanimoto")
+        st.markdown("**Structural analogs** - nearest compounds by ECFP4 Tanimoto")
         ctrl = st.columns(2)
         top_n = ctrl[0].slider("How many", 3, 25, 10, key=f"nn_n_{chosen}")
         min_sim = ctrl[1].slider("Min Tanimoto", 0.0, 1.0, 0.30, 0.05, key=f"nn_s_{chosen}")
@@ -236,12 +239,12 @@ def render(
                 column_config=_analog_column_config(),
             )
             st.caption(
-                "Δ pChEMBL is the analog's best potency minus this compound's — positive "
+                "Δ pChEMBL is the analog's best potency minus this compound's - positive "
                 "means a more potent close neighbour (a lead for the SAR series)."
             )
 
     st.divider()
-    st.markdown(f"**Lipinski Ro5** — {_ro5_line(row)}")
+    st.markdown(f"**Lipinski Ro5** - {_ro5_line(row)}")
     st.caption(
         "Ro5 is only weakly predictive here: ADC payloads / cytotoxics are "
         "antibody-delivered rather than orally absorbed, and highly potent payloads "
