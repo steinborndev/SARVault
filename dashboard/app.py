@@ -40,7 +40,7 @@ st.set_page_config(page_title="SARVault", page_icon=_ICON, layout="wide")
 
 def _logo_html(height: int = 84) -> str:
     b64 = base64.b64encode(Path(_LOGO).read_bytes()).decode()
-    return f'<img src="data:image/svg+xml;base64,{b64}" height="{height}" style="display:block">'
+    return f'<img src="data:image/svg+xml;base64,{b64}" height="{height}" style="display:block;margin:0">'
 
 
 @st.cache_resource
