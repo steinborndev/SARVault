@@ -40,7 +40,12 @@ st.set_page_config(page_title="SARVault", page_icon=_ICON, layout="wide")
 
 def _logo_html(height: int = 84) -> str:
     b64 = base64.b64encode(Path(_LOGO).read_bytes()).decode()
-    return f'<img src="data:image/svg+xml;base64,{b64}" height="{height}" style="display:block;margin:0">'
+    return (
+        '<div style="width:100%;display:flex;justify-content:flex-start;margin:0;padding:0">'
+        f'<img src="data:image/svg+xml;base64,{b64}" height="{height}" '
+        'style="display:block;margin:0">'
+        "</div>"
+    )
 
 
 @st.cache_resource
@@ -136,9 +141,9 @@ st.session_state["scope"] = {
 # Logo + unified subtitle render full-width so they sit flush-left with the page content.
 st.markdown(_logo_html(), unsafe_allow_html=True)
 st.caption(
-    "Structure–activity intelligence — similarity, scaffolds and activity cliffs — over a "
-    "reproducible warehouse of public ChEMBL bioactivity data, scoped to cytotoxic / "
-    "tubulin-targeting compounds: the chemistry behind ADC payloads and classical chemotherapeutics."
+    "Structure–activity intelligence over a reproducible warehouse of public ChEMBL "
+    "bioactivity data, scoped to cytotoxic / tubulin-targeting compounds: the chemistry "
+    "behind ADC payloads and classical chemotherapeutics."
 )
 
 nav = st.navigation(
