@@ -1,0 +1,2 @@
+# Surface dbt/SQL in GitHub's language stats (SQL isn't counted by default)
+*.sql linguist-detectable=true
