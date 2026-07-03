@@ -94,6 +94,14 @@ into interactive structure search:
   example, `c1ccccc1` keeps benzene-bearing compounds, `C(=O)N` keeps amides, and
   `[#7]` keeps anything with a nitrogen. An invalid pattern is flagged and ignored.
 
+To characterise a real build (survival through the filters, scaffold series vs.
+singletons, per-target pair budget, and the activity-cliff count across a
+Tanimoto × Δ-pChEMBL grid), run the profiler against the warehouse:
+
+```bash
+python -m scripts.profile_sar --db warehouse.duckdb --out docs/DATA_PROFILE.md
+```
+
 ## Data provenance & license
 
 Bioactivity data originates from **ChEMBL** (EMBL-EBI), pinned to a specific
