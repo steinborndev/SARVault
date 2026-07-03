@@ -20,6 +20,7 @@ import streamlit as st  # noqa: E402
 
 from dashboard import data  # noqa: E402
 from dashboard.views import (  # noqa: E402
+    activity_cliffs,
     chemical_space,
     compound_library,
     data_quality,
@@ -84,6 +85,10 @@ def _selectivity_page():
     selectivity.render(_connection(), _scope())
 
 
+def _cliffs_page():
+    activity_cliffs.render(_connection(), _scope())
+
+
 def _chemical_space_page():
     chemical_space.render(_connection(), _scope())
 
@@ -133,6 +138,7 @@ nav = st.navigation(
         st.Page(_overview_page, title="Overview", icon="🏠", default=True),
         st.Page(_library_page, title="Compound Library", icon="📚"),
         st.Page(_sar_page, title="SAR Ranking", icon="📊"),
+        st.Page(_cliffs_page, title="Activity Cliffs", icon="🧗"),
         st.Page(_selectivity_page, title="Selectivity", icon="🎯"),
         st.Page(_chemical_space_page, title="Chemical Space", icon="🧪"),
         st.Page(_data_quality_page, title="Data Quality", icon="🔎"),

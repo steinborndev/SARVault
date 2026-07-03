@@ -17,6 +17,7 @@ select
     c.compound_key,
     ci.molecule_chembl_id,
     ci.ecfp4_hex,
+    ci.ecfp4_onbits,
     ci.n_onbits,
     ci.heavy_atom_count,
     ci.murcko_scaffold_smiles,

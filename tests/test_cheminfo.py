@@ -27,6 +27,14 @@ def test_fingerprint_is_deterministic():
     assert digest == _ASPIRIN_ECFP4_SHA256
 
 
+def test_onbits_are_sorted_and_match_popcount():
+    info = cheminfo.compute_cheminfo(_ASPIRIN)
+    onbits = info["ecfp4_onbits"]
+    assert onbits == sorted(onbits)
+    assert len(onbits) == info["n_onbits"]
+    assert all(0 <= b < cheminfo.FP_NBITS for b in onbits)
+
+
 def test_fingerprint_stable_across_calls():
     a = cheminfo.compute_cheminfo(_ASPIRIN)
     b = cheminfo.compute_cheminfo(_ASPIRIN)

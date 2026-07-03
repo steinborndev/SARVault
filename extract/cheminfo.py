@@ -67,6 +67,7 @@ def compute_cheminfo(smiles: str) -> dict | None:
     fp = gen.GetFingerprint(mol)
     bitstring = fp.ToBitString()  # deterministic length-FP_NBITS '0'/'1' string
     ecfp4_hex = f"{int(bitstring, 2):0{FP_NBITS // 4}x}"
+    onbits = sorted(int(b) for b in fp.GetOnBits())
 
     scaffold = MurckoScaffold.GetScaffoldForMol(mol)
     scaffold_smiles = Chem.MolToSmiles(scaffold) if scaffold.GetNumAtoms() else None
@@ -81,6 +82,7 @@ def compute_cheminfo(smiles: str) -> dict | None:
 
     return {
         "ecfp4_hex": ecfp4_hex,
+        "ecfp4_onbits": onbits,
         "n_onbits": int(fp.GetNumOnBits()),
         "heavy_atom_count": int(mol.GetNumHeavyAtoms()),
         "murcko_scaffold_smiles": scaffold_smiles,

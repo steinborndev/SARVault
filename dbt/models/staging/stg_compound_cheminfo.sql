@@ -8,6 +8,7 @@ select
     molecule_chembl_id,
     canonical_smiles,
     ecfp4_hex,
+    ecfp4_onbits,
     cast(n_onbits as integer)         as n_onbits,
     cast(heavy_atom_count as integer) as heavy_atom_count,
     murcko_scaffold_smiles,

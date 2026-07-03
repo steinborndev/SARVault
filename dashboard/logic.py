@@ -187,3 +187,16 @@ def nearest_neighbors(
 
     out = pd.DataFrame(rows, columns=cols)
     return out.sort_values("tanimoto", ascending=False).head(top_n).reset_index(drop=True)
+
+
+def filter_cliffs(cliffs, min_tanimoto: float, min_delta: float, include_identical: bool):
+    """Filter activity-cliff pairs by the similarity/Δ floor and the identical-fp toggle.
+
+    Pure DataFrame helper (no Streamlit) so the page's core selection logic is testable.
+    """
+    view = cliffs[
+        (cliffs["tanimoto"] >= min_tanimoto) & (cliffs["delta_pchembl"] >= min_delta)
+    ]
+    if not include_identical:
+        view = view[~view["is_identical_fp"].astype(bool)]
+    return view

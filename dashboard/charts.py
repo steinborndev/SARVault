@@ -169,3 +169,27 @@ def confidence_bar(df) -> go.Figure:
     )
     fig.update_layout(height=360, xaxis={"type": "category"})
     return fig
+
+
+def cliff_scatter(df) -> go.Figure:
+    """Activity cliffs: potency delta vs. structural similarity, coloured by target.
+
+    Points to the upper right (very similar, very different potency) are the
+    sharpest cliffs. Identical-fingerprint pairs (Tanimoto = 1) sit on the right edge.
+    """
+    plot_df = df.dropna(subset=["tanimoto", "delta_pchembl"])
+    fig = px.scatter(
+        plot_df,
+        x="tanimoto",
+        y="delta_pchembl",
+        color="target_pref_name",
+        hover_data=["molecule_chembl_id_a", "molecule_chembl_id_b", "sali"],
+        labels={
+            "tanimoto": "ECFP4 Tanimoto similarity",
+            "delta_pchembl": "|Δ pChEMBL|",
+            "target_pref_name": "target",
+        },
+    )
+    fig.update_traces(marker={"size": 9, "opacity": 0.75})
+    fig.update_layout(height=460, legend={"orientation": "h", "y": -0.25})
+    return fig

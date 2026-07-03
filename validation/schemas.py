@@ -45,6 +45,7 @@ COMPOUND_CHEMINFO_SCHEMA = DataFrameSchema(
     {
         "molecule_chembl_id": Column(str, nullable=False),
         "ecfp4_hex": Column(str, nullable=False),
+        "ecfp4_onbits": Column(object, nullable=False),
         "n_onbits": Column(int, nullable=False),
         "heavy_atom_count": Column(int, nullable=False),
         "murcko_scaffold_smiles": Column(str, nullable=True),

@@ -48,6 +48,7 @@ flowchart LR
     marts_fact_activity["marts/fact_activity"]
   end
   subgraph analytics["Analytics (dbt)"]
+    analytics_mart_activity_cliff["analytics/mart_activity_cliff"]
     analytics_mart_chemical_space["analytics/mart_chemical_space"]
     analytics_mart_compound_catalog["analytics/mart_compound_catalog"]
     analytics_mart_compound_fingerprint["analytics/mart_compound_fingerprint"]
@@ -59,17 +60,20 @@ flowchart LR
   subgraph seed["Seeds"]
     xref_sources["xref_sources"]
   end
+  analytics_mart_target_sar --> analytics_mart_activity_cliff
+  marts_dim_target --> analytics_mart_activity_cliff
+  analytics_mart_compound_fingerprint --> analytics_mart_activity_cliff
   marts_dim_compound --> analytics_mart_chemical_space
   analytics_mart_target_sar --> analytics_mart_chemical_space
-  marts_dim_compound --> analytics_mart_compound_catalog
-  analytics_mart_compound_selectivity --> analytics_mart_compound_catalog
   analytics_mart_compound_pdb --> analytics_mart_compound_catalog
-  marts_dim_compound --> analytics_mart_compound_fingerprint
+  analytics_mart_compound_selectivity --> analytics_mart_compound_catalog
+  marts_dim_compound --> analytics_mart_compound_catalog
   staging_stg_compound_cheminfo --> analytics_mart_compound_fingerprint
   marts_dim_scaffold --> analytics_mart_compound_fingerprint
-  staging_stg_pdbe_summary --> analytics_mart_compound_pdb
-  staging_stg_compound_xref --> analytics_mart_compound_pdb
+  marts_dim_compound --> analytics_mart_compound_fingerprint
   marts_dim_compound --> analytics_mart_compound_pdb
+  staging_stg_compound_xref --> analytics_mart_compound_pdb
+  staging_stg_pdbe_summary --> analytics_mart_compound_pdb
   staging_stg_pdbe_structure --> analytics_mart_compound_pdb
   staging_stg_compound_xref_unichem --> analytics_mart_compound_pdb
   analytics_mart_target_sar --> analytics_mart_compound_selectivity
@@ -78,15 +82,15 @@ flowchart LR
   staging_stg_compound_xref_unichem --> analytics_mart_compound_xref
   xref_sources --> analytics_mart_compound_xref
   marts_dim_compound --> analytics_mart_target_sar
-  marts_fact_activity --> analytics_mart_target_sar
   marts_dim_target --> analytics_mart_target_sar
+  marts_fact_activity --> analytics_mart_target_sar
   staging_stg_assays --> marts_dim_assay
   staging_stg_molecules --> marts_dim_compound
   staging_stg_compound_cheminfo --> marts_dim_scaffold
   staging_stg_targets --> marts_dim_target
+  staging_stg_activities --> marts_fact_activity
   marts_dim_compound --> marts_fact_activity
   marts_dim_assay --> marts_fact_activity
-  staging_stg_activities --> marts_fact_activity
   marts_dim_target --> marts_fact_activity
   raw_molecules --> raw_compound_cheminfo
   raw_activities --> staging_stg_activities

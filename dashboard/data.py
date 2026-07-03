@@ -134,6 +134,29 @@ def load_fingerprints(con: duckdb.DuckDBPyConnection) -> pd.DataFrame:
         )
 
 
+def load_activity_cliffs(con: duckdb.DuckDBPyConnection) -> pd.DataFrame:
+    """Activity-cliff pairs (empty if the mart is absent in an older warehouse)."""
+    try:
+        return con.execute(
+            """
+            select target_key, target_pref_name,
+                   compound_key_a, compound_key_b,
+                   molecule_chembl_id_a, molecule_chembl_id_b,
+                   pchembl_a, pchembl_b, delta_pchembl, tanimoto,
+                   is_identical_fp, same_scaffold, sali
+            from main_analytics.mart_activity_cliff
+            """
+        ).df()
+    except Exception:
+        return pd.DataFrame(
+            columns=[
+                "target_key", "target_pref_name", "compound_key_a", "compound_key_b",
+                "molecule_chembl_id_a", "molecule_chembl_id_b", "pchembl_a", "pchembl_b",
+                "delta_pchembl", "tanimoto", "is_identical_fp", "same_scaffold", "sali",
+            ]
+        )
+
+
 def compound_target_profile(con: duckdb.DuckDBPyConnection, compound_key: int) -> pd.DataFrame:
     """Per-target potency for one compound (its SAR fingerprint)."""
     return con.execute(

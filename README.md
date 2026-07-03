@@ -79,7 +79,9 @@ with an embedded 3D co-crystal viewer; and a
 Streamlit dashboard (deployed on Streamlit Community Cloud). The full lineage is
 orchestrated as a **Dagster asset graph** with dbt tests surfaced as asset checks
 (see [`docs/ORCHESTRATION.md`](./docs/ORCHESTRATION.md)). The warehouse is
-Snowflake-ready via a second dbt profile, not yet run against a live account.
+Snowflake-ready via a second dbt profile, not yet run against a live account. The
+activity-cliff floor is set from the real-data profile (`scripts/profile_sar.py`)
+via dbt vars (`cliff_min_tanimoto`, `cliff_min_delta_pchembl`).
 
 ## Exploring structure
 
@@ -93,6 +95,12 @@ into interactive structure search:
   containing that motif, with the matching atoms highlighted in the 2D depiction. For
   example, `c1ccccc1` keeps benzene-bearing compounds, `C(=O)N` keeps amides, and
   `[#7]` keeps anything with a nitrogen. An invalid pattern is flagged and ignored.
+- **Activity cliffs** — the **Activity Cliffs** page surfaces pairs of structurally
+  similar compounds (high ECFP4 Tanimoto) whose potency differs sharply on the same
+  target — the sharpest signal in SAR. Pairs are ranked by SALI (= |Δ pChEMBL| /
+  (1 − Tanimoto)) and shown side by side; similarity and Δ-potency thresholds are
+  adjustable, and identical-2D-fingerprint pairs (stereo/tautomer/replicate) are
+  flagged rather than mistaken for structural cliffs.
 
 To characterise a real build (survival through the filters, scaffold series vs.
 singletons, per-target pair budget, and the activity-cliff count across a

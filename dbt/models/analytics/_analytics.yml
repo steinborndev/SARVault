@@ -114,3 +114,23 @@ models:
                 field: scaffold_key
       - name: ecfp4_hex
         tests: [not_null]
+
+  - name: mart_activity_cliff
+    description: "Activity cliffs (grain: target x compound_a x compound_b, a<b): structurally similar pairs with a large potency delta on the same target."
+    columns:
+      - name: tanimoto
+        tests: [not_null]
+      - name: delta_pchembl
+        tests: [not_null]
+      - name: compound_key_a
+        tests:
+          - relationships:
+              arguments:
+                to: ref('dim_compound')
+                field: compound_key
+      - name: compound_key_b
+        tests:
+          - relationships:
+              arguments:
+                to: ref('dim_compound')
+                field: compound_key

@@ -27,3 +27,8 @@ models:
 vars:
   standard_types: ["IC50", "GI50", "Ki", "Kd", "EC50"]
   min_confidence_score: 5
+  # Activity-cliff floor (mart_activity_cliff). Kept permissive so the mart holds the
+  # candidate space; the dashboard filters/ranks (by SALI) up from here. Chosen from
+  # the real-data profile (scripts/profile_sar.py): T>=0.75 & |dpChEMBL|>=1.0.
+  cliff_min_tanimoto: 0.75
+  cliff_min_delta_pchembl: 1.0
