@@ -113,17 +113,11 @@ except Exception as exc:  # warehouse missing or unbuilt
     )
     st.stop()
 
-# --- header: logo (top left) + scope (top right) ---
-header_left, header_right = st.columns([12, 1])
-with header_left:
-    st.markdown(_logo_html(), unsafe_allow_html=True)
-    st.caption(
-        "Structure–activity intelligence for ADC-payload & cytotoxic chemistry — "
-        "similarity, scaffolds and activity cliffs over a reproducible ChEMBL warehouse."
-    )
+# --- header: scope popover pinned top-right, then logo + subtitle flush-left ---
 target_names = data.list_target_names(con)
 prev = st.session_state.get("scope", {})
-with header_right.popover("Scope", width="stretch"):
+_, scope_col = st.columns([11, 1])
+with scope_col.popover("Scope", width="stretch"):
     sel_targets = st.multiselect("Targets", target_names, default=prev.get("targets", target_names))
     approval = st.radio(
         "Approval", _APPROVAL, index=_APPROVAL.index(prev.get("approval", "all")), horizontal=True
@@ -138,6 +132,14 @@ st.session_state["scope"] = {
     "min_pchembl": min_pchembl,
     "structure_only": structure_only,
 }
+
+# Logo + unified subtitle render full-width so they sit flush-left with the page content.
+st.markdown(_logo_html(), unsafe_allow_html=True)
+st.caption(
+    "Structure–activity intelligence — similarity, scaffolds and activity cliffs — over a "
+    "reproducible warehouse of public ChEMBL bioactivity data, scoped to cytotoxic / "
+    "tubulin-targeting compounds: the chemistry behind ADC payloads and classical chemotherapeutics."
+)
 
 nav = st.navigation(
     [

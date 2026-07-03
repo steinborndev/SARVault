@@ -113,18 +113,26 @@ def render(con, scope):
         st.info("No cliffs at these thresholds — loosen the sliders in the sidebar.")
         return
 
-    st.plotly_chart(charts.cliff_scatter(view), width="stretch")
+    # SALI-ranked table drives both the scatter and the detail; _row ties them together.
+    ranked = view.sort_values("sali", ascending=False, na_position="last").reset_index(drop=True)
+    ranked["_row"] = range(len(ranked))
+    ranked["pair"] = ranked["molecule_chembl_id_a"] + " ⇄ " + ranked["molecule_chembl_id_b"]
+
+    scatter_event = st.plotly_chart(
+        charts.cliff_scatter(ranked),
+        width="stretch",
+        on_select="rerun",
+        selection_mode="points",
+        key="cliff_scatter",
+    )
 
     st.divider()
-    # SALI-ranked table (identical-fp pairs, with null SALI, sort last).
-    ranked = view.sort_values("sali", ascending=False, na_position="last").reset_index(drop=True)
-    ranked["pair"] = ranked["molecule_chembl_id_a"] + " ⇄ " + ranked["molecule_chembl_id_b"]
     list_cols = [
         "pair", "target_pref_name", "tanimoto", "delta_pchembl", "sali",
         "same_scaffold", "is_identical_fp",
     ]
-    st.caption("Ranked by SALI — click a row to see the pair side by side.")
-    event = st.dataframe(
+    st.caption("Ranked by SALI — click a row, or click a point in the plot above.")
+    table_event = st.dataframe(
         ranked[list_cols],
         hide_index=True,
         width="stretch",
@@ -134,11 +142,28 @@ def render(con, scope):
         key="cliff_rows",
     )
 
+    # Reconcile the two selectors: a click on either the scatter or the table wins over
+    # a stale selection, and the last chosen row persists across unrelated reruns.
+    scatter_idx = None
+    if scatter_event.selection and scatter_event.selection.get("points"):
+        cd = scatter_event.selection["points"][0].get("customdata")
+        if cd:
+            scatter_idx = int(cd[0])
+    table_idx = table_event.selection.rows[0] if table_event.selection.rows else None
+
+    prev = st.session_state.get("_cliff_sel", {"scatter": None, "table": None, "idx": 0})
+    idx = prev["idx"]
+    if scatter_idx is not None and scatter_idx != prev["scatter"]:
+        idx = scatter_idx
+    if table_idx is not None and table_idx != prev["table"]:
+        idx = table_idx
+    if idx is None or idx >= len(ranked):
+        idx = 0
+    st.session_state["_cliff_sel"] = {"scatter": scatter_idx, "table": table_idx, "idx": idx}
+
     # SMILES lookup for the side-by-side render (from the compound catalog).
     catalog = data.load_compound_catalog(con)
     smiles_by_id = dict(zip(catalog["molecule_chembl_id"], catalog["canonical_smiles"]))
 
-    sel = event.selection.rows
-    idx = sel[0] if sel and sel[0] < len(ranked) else 0
     st.divider()
     _pair_detail(ranked.iloc[idx], smiles_by_id)

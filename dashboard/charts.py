@@ -176,13 +176,17 @@ def cliff_scatter(df) -> go.Figure:
 
     Points to the upper right (very similar, very different potency) are the
     sharpest cliffs. Identical-fingerprint pairs (Tanimoto = 1) sit on the right edge.
+    If the frame carries a ``_row`` column it is attached as customdata so a click on
+    a point can be mapped back to its table row.
     """
     plot_df = df.dropna(subset=["tanimoto", "delta_pchembl"])
+    custom = ["_row"] if "_row" in plot_df.columns else None
     fig = px.scatter(
         plot_df,
         x="tanimoto",
         y="delta_pchembl",
         color="target_pref_name",
+        custom_data=custom,
         hover_data=["molecule_chembl_id_a", "molecule_chembl_id_b", "sali"],
         labels={
             "tanimoto": "ECFP4 Tanimoto similarity",
