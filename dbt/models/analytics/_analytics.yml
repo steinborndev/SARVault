@@ -160,3 +160,13 @@ models:
         tests: [not_null]
       - name: median_pchembl
         tests: [not_null]
+
+  - name: mart_compound_cytotoxicity
+    description: "Cellular cytotoxicity of the reference ADC payloads (grain: payload x cell line): computed p_cyto (-log10 molar) from GI50/IC50."
+    columns:
+      - name: molecule_chembl_id
+        tests: [not_null]
+      - name: payload_class
+        tests: [not_null]
+      - name: median_p_cyto
+        tests: [not_null]

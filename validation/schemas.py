@@ -29,6 +29,20 @@ ACTIVITIES_SCHEMA = _schema(
     }
 )
 MOLECULES_SCHEMA = _schema({"molecule_chembl_id": Column(str, nullable=True)})
+# Cellular cytotoxicity of the reference payloads: same /activity records as
+# ACTIVITIES, plus the config-stamped payload_class / reference_name. pchembl is
+# absent on cellular GI50/IC50, so potency is computed downstream from
+# standard_value; the raw layer only asserts the identifying columns are present.
+CELL_ACTIVITIES_SCHEMA = _schema(
+    {
+        "molecule_chembl_id": Column(str, nullable=True),
+        "target_chembl_id": Column(str, nullable=True),
+        "assay_chembl_id": Column(str, nullable=True),
+        "standard_type": Column(str, nullable=True),
+        "payload_class": Column(str, nullable=True),
+        "reference_name": Column(str, nullable=True),
+    }
+)
 TARGETS_SCHEMA = _schema({"target_chembl_id": Column(str, nullable=True)})
 ASSAYS_SCHEMA = _schema({"assay_chembl_id": Column(str, nullable=True)})
 
@@ -78,6 +92,7 @@ COMPOUND_EMBEDDING_SCHEMA = DataFrameSchema(
 
 SCHEMAS = {
     "activities": ACTIVITIES_SCHEMA,
+    "cell_activities": CELL_ACTIVITIES_SCHEMA,
     "molecules": MOLECULES_SCHEMA,
     "targets": TARGETS_SCHEMA,
     "assays": ASSAYS_SCHEMA,
