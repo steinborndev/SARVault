@@ -1,4 +1,4 @@
-"""Activity Cliffs page — the SAR centrepiece.
+"""Activity Cliffs page - the SAR centrepiece.
 
 An activity cliff is a pair of structurally similar compounds whose potency
 differs sharply *on the same target*: a small structural change with a large
@@ -15,8 +15,7 @@ import streamlit as st
 from dashboard import charts, chem, data
 
 
-def _structure_img(smiles, highlight=None) -> str | None:
-    svg = chem.smiles_to_svg(smiles, width=360, height=300, highlight_smarts=highlight)
+def _svg_img(svg) -> str | None:
     if not svg:
         return None
     b64 = base64.b64encode(svg.encode()).decode()
@@ -37,12 +36,12 @@ def _cliff_column_config():
         "sali": st.column_config.NumberColumn("SALI", format="%.1f", help="|Δ| / (1 − Tanimoto)"),
         "same_scaffold": st.column_config.CheckboxColumn("Same scaffold"),
         "is_identical_fp": st.column_config.CheckboxColumn(
-            "Identical 2D", help="Identical ECFP4 — likely stereo/tautomer/replicate, not a 2D change"
+            "Identical 2D", help="Identical ECFP4 - likely stereo/tautomer/replicate, not a 2D change"
         ),
     }
 
 
-def _pair_detail(row, smiles_by_id):
+def _pair_detail(row, smiles_by_id, align: bool = True, highlight_core: bool = False):
     a, b = row["molecule_chembl_id_a"], row["molecule_chembl_id_b"]
     st.markdown(f"#### {a}  ⇄  {b}  ·  {row['target_pref_name']}")
 
@@ -54,10 +53,15 @@ def _pair_detail(row, smiles_by_id):
     else:
         m[2].metric("Δ pChEMBL", f"{row['delta_pchembl']:.2f}", "identical 2D fingerprint")
 
+    # Orient both structures on their shared core so the substituent changes line up.
+    svg_a, svg_b = chem.render_pair(
+        smiles_by_id.get(a), smiles_by_id.get(b),
+        width=360, height=300, align=align, highlight_core=highlight_core,
+    )
     left, right = st.columns(2)
-    for col, cid in ((left, a), (right, b)):
+    for col, cid, svg in ((left, a, svg_a), (right, b, svg_b)):
         with col:
-            img = _structure_img(smiles_by_id.get(cid))
+            img = _svg_img(svg)
             if img:
                 st.markdown(img, unsafe_allow_html=True)
             else:
@@ -67,8 +71,8 @@ def _pair_detail(row, smiles_by_id):
     if bool(row["is_identical_fp"]):
         st.caption(
             "These two share an identical 2D (ECFP4) fingerprint, so the potency "
-            "gap comes from something the 2D graph doesn't capture — stereochemistry, "
-            "tautomer/salt form, or measurement variance — rather than a structural edit."
+            "gap comes from something the 2D graph doesn't capture - stereochemistry, "
+            "tautomer/salt form, or measurement variance - rather than a structural edit."
         )
 
 
@@ -76,7 +80,7 @@ def render(con, scope):
     st.header("Activity cliffs")
     st.write(
         "Structurally similar compounds with a large potency difference on the same "
-        "target — the sharpest signal in SAR. SALI = |Δ pChEMBL| / (1 − Tanimoto)."
+        "target - the sharpest signal in SAR. SALI = |Δ pChEMBL| / (1 − Tanimoto)."
     )
 
     cliffs = data.load_activity_cliffs(con)
@@ -110,7 +114,7 @@ def render(con, scope):
         f"{len(view)} cliff pairs at Tanimoto ≥ {min_tan:.2f} and |Δ pChEMBL| ≥ {min_delta:.1f}"
     )
     if view.empty:
-        st.info("No cliffs at these thresholds — loosen the sliders in the sidebar.")
+        st.info("No cliffs at these thresholds - loosen the sliders in the sidebar.")
         return
 
     # SALI-ranked table drives both the scatter and the detail; _row ties them together.
@@ -131,7 +135,7 @@ def render(con, scope):
         "pair", "target_pref_name", "tanimoto", "delta_pchembl", "sali",
         "same_scaffold", "is_identical_fp",
     ]
-    st.caption("Ranked by SALI — click a row, or click a point in the plot above.")
+    st.caption("Ranked by SALI - click a row, or click a point in the plot above.")
     # Mark the top-SALI pair on first open so the highlighted row matches the detail below.
     logic.preselect_first_row(st.session_state, "cliff_rows")
     table_event = st.dataframe(
@@ -168,4 +172,14 @@ def render(con, scope):
     smiles_by_id = dict(zip(catalog["molecule_chembl_id"], catalog["canonical_smiles"]))
 
     st.divider()
-    _pair_detail(ranked.iloc[idx], smiles_by_id)
+    acol = st.columns([1, 1, 4])
+    align = acol[0].toggle(
+        "Align to shared core", value=True, key="cliff_align",
+        help="Orient both structures on their maximum common substructure so the shared "
+        "core stays fixed and the differing substituents line up side by side.",
+    )
+    highlight = acol[1].toggle(
+        "Highlight core", value=False, key="cliff_highlight",
+        help="Wash the shared core with a subtle tint so the substituent changes stand out.",
+    )
+    _pair_detail(ranked.iloc[idx], smiles_by_id, align=align, highlight_core=highlight)

@@ -13,6 +13,11 @@ _TEMPLATE_CACHE: dict = {}
 # Fractional breathing margin added around a molecule's drawing window.
 _FRAME_PAD = 0.08
 
+# Wall-clock ceiling (seconds) for the maximum-common-substructure search used to
+# align an activity-cliff pair. Cliff partners are similar by construction, so the
+# search is fast; the cap only guards against a pathological pair stalling a render.
+_MCS_TIMEOUT = 5
+
 _COORDGEN_ENABLED = False
 
 
@@ -104,6 +109,98 @@ def _extents_from(mol, cx: float, cy: float) -> tuple:
     return radius, max(dxs), max(dys)
 
 
+def _largest_fragment(mol):
+    """Largest fragment of a possibly multi-component (salt/solvent) mol.
+
+    For depiction only: a cliff pair is compared on its parent structure, so a
+    counter-ion or solvent sitting off to one side would otherwise inflate the shared
+    drawing window and shrink the core we actually want to compare. Returns the input
+    unchanged when it is already a single fragment.
+    """
+    from rdkit import Chem
+
+    frags = Chem.GetMolFrags(mol, asMols=True, sanitizeFrags=True)
+    if len(frags) <= 1:
+        return mol
+    return max(frags, key=lambda m: m.GetNumHeavyAtoms())
+
+
+def _apply_frame(drawer, mol, frame, width: int, height: int) -> None:
+    """Centre and scale ``drawer`` on a shared drawing window (see ``smiles_to_svg``).
+
+    Centres on the shared core centroid so the core is position-stable, sizes the window
+    to the canvas aspect so the structure fills it, and - for a series - lets an outlier
+    beyond ``fence`` use its own extents so it fits fully instead of clipping. A pair
+    passes ``fence=None`` (no outlier to fence off), so both members share one window.
+    """
+    from rdkit.Geometry import Point2D
+
+    cx, cy, frame_hx, frame_hy, fence = frame
+    r_member, mhx, mhy = _extents_from(mol, cx, cy)
+    base_hx, base_hy = (
+        (mhx, mhy) if (fence is not None and r_member > fence) else (frame_hx, frame_hy)
+    )
+    base_hx, base_hy = max(base_hx, 1e-6), max(base_hy, 1e-6)
+    # Grow the shorter axis to the canvas aspect so nothing is letterboxed.
+    if base_hx / base_hy >= width / height:
+        hx, hy = base_hx, base_hx * height / width
+    else:
+        hx, hy = base_hy * width / height, base_hy
+    hx *= 1.0 + _FRAME_PAD
+    hy *= 1.0 + _FRAME_PAD
+    drawer.SetScale(width, height, Point2D(cx - hx, cy - hy), Point2D(cx + hx, cy + hy))
+
+
+def _draw_svg(
+    mol,
+    width: int,
+    height: int,
+    frame: tuple | None,
+    highlight_atoms: list,
+    highlight_bonds: list,
+    atom_colors: dict,
+    bond_colors: dict,
+) -> str:
+    """Draw ``mol`` to an SVG, applying a shared frame and optional highlights."""
+    from rdkit.Chem.Draw import rdMolDraw2D
+
+    drawer = rdMolDraw2D.MolDraw2DSVG(width, height)
+    if frame is not None:
+        _apply_frame(drawer, mol, frame, width, height)
+    drawer.DrawMolecule(
+        mol,
+        highlightAtoms=highlight_atoms or None,
+        highlightBonds=highlight_bonds or None,
+        highlightAtomColors=atom_colors or None,
+        highlightBondColors=bond_colors or None,
+    )
+    drawer.FinishDrawing()
+    return drawer.GetDrawingText()
+
+
+def _core_highlight(mol, core) -> tuple:
+    """Atoms/bonds of ``mol`` matching ``core``, tinted with the scaffold wash.
+
+    Returns ``(atoms, bonds, atom_colors, bond_colors)`` for ``_draw_svg``; empty when
+    the core does not match (so the depiction is simply left untinted).
+    """
+    atoms: list[int] = []
+    bonds: list[int] = []
+    atom_colors: dict = {}
+    bond_colors: dict = {}
+    match = mol.GetSubstructMatch(core)
+    if match:
+        match_set = set(match)
+        for a in match:
+            atoms.append(a)
+            atom_colors[a] = _SCAFFOLD_HL
+        for bond in mol.GetBonds():
+            if bond.GetBeginAtomIdx() in match_set and bond.GetEndAtomIdx() in match_set:
+                bonds.append(bond.GetIdx())
+                bond_colors[bond.GetIdx()] = _SCAFFOLD_HL
+    return atoms, bonds, atom_colors, bond_colors
+
+
 def smiles_to_svg(
     smiles: str,
     width: int = 420,
@@ -135,8 +232,6 @@ def smiles_to_svg(
         return None
     from rdkit import Chem
     from rdkit.Chem import rdDepictor
-    from rdkit.Chem.Draw import rdMolDraw2D
-    from rdkit.Geometry import Point2D
 
     _ensure_coordgen()
     mol = Chem.MolFromSmiles(smiles)
@@ -179,35 +274,19 @@ def smiles_to_svg(
             for m in mol.GetSubstructMatches(query):
                 highlight_atoms.extend(m)
 
-    drawer = rdMolDraw2D.MolDraw2DSVG(width, height)
     # Centre on the shared scaffold centroid so the core is position-stable across the
-    # series, and size the window to the canvas aspect so the structure fills it. Typical
-    # members share one window (stable core position and size); an outlier uses its own
-    # extents so it fits fully instead of clipping - only its size differs.
-    if aligned and frame is not None:
-        cx, cy, frame_hx, frame_hy, fence = frame
-        r_member, mhx, mhy = _extents_from(mol, cx, cy)
-        base_hx, base_hy = (
-            (mhx, mhy) if (fence is not None and r_member > fence) else (frame_hx, frame_hy)
-        )
-        base_hx, base_hy = max(base_hx, 1e-6), max(base_hy, 1e-6)
-        # Grow the shorter axis to the canvas aspect so nothing is letterboxed.
-        if base_hx / base_hy >= width / height:
-            hx, hy = base_hx, base_hx * height / width
-        else:
-            hx, hy = base_hy * width / height, base_hy
-        hx *= 1.0 + _FRAME_PAD
-        hy *= 1.0 + _FRAME_PAD
-        drawer.SetScale(width, height, Point2D(cx - hx, cy - hy), Point2D(cx + hx, cy + hy))
-    drawer.DrawMolecule(
+    # series, sizing the window to the canvas aspect so the structure fills it. Only
+    # applied when the member actually aligned to the scaffold.
+    return _draw_svg(
         mol,
-        highlightAtoms=highlight_atoms or None,
-        highlightBonds=highlight_bonds or None,
-        highlightAtomColors=atom_colors or None,
-        highlightBondColors=bond_colors or None,
+        width,
+        height,
+        frame if (aligned and frame is not None) else None,
+        highlight_atoms,
+        highlight_bonds,
+        atom_colors,
+        bond_colors,
     )
-    drawer.FinishDrawing()
-    return drawer.GetDrawingText()
 
 
 def scaffold_frame(scaffold_smiles: str, member_smiles) -> tuple | None:
@@ -259,3 +338,122 @@ def scaffold_frame(scaffold_smiles: str, member_smiles) -> tuple | None:
     frame_hx = max(hx for hx, _ in typical)
     frame_hy = max(hy for _, hy in typical)
     return (cx, cy, frame_hx, frame_hy, fence)
+
+
+def pair_core(smiles_a: str, smiles_b: str, strip_salts: bool = True):
+    """Align two activity-cliff partners onto their maximum common substructure.
+
+    Unlike a chemical series - where one Bemis-Murcko scaffold is a substructure of
+    every member - the two compounds in a cliff pair need not share a scaffold at all
+    (this is exactly what the mart's ``same_scaffold`` flag distinguishes). So the shared
+    reference is their maximum common substructure (MCS), computed per pair, rather than
+    a fixed scaffold. Cliff partners are similar by construction, so the MCS is large and
+    captures precisely the common core; aligning both to it makes the differing
+    substituents line up for a direct read.
+
+    Molecule A keeps its own fresh 2D layout and becomes the reference frame; molecule B
+    is redrawn onto A over the shared core, so both place the core at identical
+    coordinates. Salts and solvents are stripped to the largest fragment first (depiction
+    only). ``core`` is returned as an RDKit query mol.
+
+    Returns ``(mol_a, mol_b, core)``, or None when either SMILES is unparseable, the MCS
+    search is cancelled, or no common core is found - so the caller can fall back to two
+    independent depictions and never break the page on an odd pair.
+    """
+    if not smiles_a or not smiles_b:
+        return None
+    from rdkit import Chem
+    from rdkit.Chem import rdDepictor, rdFMCS
+
+    _ensure_coordgen()
+    mol_a = Chem.MolFromSmiles(smiles_a)
+    mol_b = Chem.MolFromSmiles(smiles_b)
+    if mol_a is None or mol_b is None:
+        return None
+    if strip_salts:
+        mol_a = _largest_fragment(mol_a)
+        mol_b = _largest_fragment(mol_b)
+
+    # completeRingsOnly + ringMatchesRingOnly keep the core chemically whole (no half
+    # rings), which is what makes the aligned depiction read cleanly.
+    mcs = rdFMCS.FindMCS(
+        [mol_a, mol_b],
+        ringMatchesRingOnly=True,
+        completeRingsOnly=True,
+        bondCompare=rdFMCS.BondCompare.CompareOrderExact,
+        timeout=_MCS_TIMEOUT,
+    )
+    if mcs.canceled or mcs.numAtoms == 0:
+        return None
+    core = Chem.MolFromSmarts(mcs.smartsString)
+    if core is None:
+        return None
+
+    rdDepictor.Compute2DCoords(mol_a)
+    try:
+        # Hard constraint: B's core is pinned to A's coordinates, the rest built around it.
+        rdDepictor.GenerateDepictionMatching2DStructure(mol_b, mol_a, refPatt=core)
+    except (ValueError, RuntimeError):
+        return None
+    return mol_a, mol_b, core
+
+
+def pair_frame(mol_a, mol_b, core) -> tuple | None:
+    """Shared, centred drawing window for an aligned cliff pair.
+
+    Centres on the shared-core centroid (identical in both mols after ``pair_core``) and
+    sizes the window to the larger of the two molecules' extents, so both panels use one
+    scale and the core sits at the same place and size in each - the differing
+    substituents then compare directly. Returns the same ``(cx, cy, hx, hy, fence)`` tuple
+    ``_draw_svg`` consumes, with ``fence=None`` (a two-member pair has no outlier to fence
+    off). Returns None if the core no longer matches molecule A.
+    """
+    match_a = mol_a.GetSubstructMatch(core)
+    if not match_a:
+        return None
+    conf_a = mol_a.GetConformer()
+    cx = sum(conf_a.GetAtomPosition(i).x for i in match_a) / len(match_a)
+    cy = sum(conf_a.GetAtomPosition(i).y for i in match_a) / len(match_a)
+    hx = hy = 0.0
+    for mol in (mol_a, mol_b):
+        _, mhx, mhy = _extents_from(mol, cx, cy)
+        hx, hy = max(hx, mhx), max(hy, mhy)
+    return (cx, cy, hx, hy, None)
+
+
+def render_pair(
+    smiles_a: str,
+    smiles_b: str,
+    width: int = 360,
+    height: int = 300,
+    align: bool = True,
+    highlight_core: bool = False,
+    strip_salts: bool = True,
+) -> tuple:
+    """Render an activity-cliff pair as two SVGs, aligned on their shared core.
+
+    With ``align`` set, both structures are oriented so their maximum common substructure
+    sits in one fixed frame at the same scale, so the substituent changes line up side by
+    side; ``highlight_core`` washes that shared core. Falls back to two independent
+    depictions when ``align`` is off or the pair cannot be aligned (no common core,
+    unparseable input). Returns ``(svg_a, svg_b)``; an element is None if that SMILES is
+    unusable.
+    """
+    plain = (
+        smiles_to_svg(smiles_a, width=width, height=height),
+        smiles_to_svg(smiles_b, width=width, height=height),
+    )
+    if not align:
+        return plain
+    result = pair_core(smiles_a, smiles_b, strip_salts=strip_salts)
+    if result is None:
+        return plain
+    mol_a, mol_b, core = result
+    frame = pair_frame(mol_a, mol_b, core)
+    svgs = []
+    for mol in (mol_a, mol_b):
+        atoms, bonds, atom_colors, bond_colors = (
+            _core_highlight(mol, core) if highlight_core else ([], [], {}, {})
+        )
+        svgs.append(_draw_svg(mol, width, height, frame, atoms, bonds, atom_colors, bond_colors))
+    return tuple(svgs)
