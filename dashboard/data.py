@@ -120,6 +120,19 @@ def load_payload_class_profile(con: duckdb.DuckDBPyConnection) -> pd.DataFrame:
         )
 
 
+def load_compound_cytotoxicity(con: duckdb.DuckDBPyConnection) -> pd.DataFrame:
+    """Reference-payload cellular cytotoxicity (empty if the mart is absent)."""
+    try:
+        return con.execute("select * from main_analytics.mart_compound_cytotoxicity").df()
+    except Exception:
+        return pd.DataFrame(
+            columns=[
+                "molecule_chembl_id", "molecule_pref_name", "reference_name", "payload_class",
+                "cell_line_chembl_id", "cell_line", "n_measurements", "median_p_cyto", "max_p_cyto",
+            ]
+        )
+
+
 def load_fingerprints(con: duckdb.DuckDBPyConnection) -> pd.DataFrame:
     """Per-compound ECFP4 hex fingerprint + scaffold (empty if the mart is absent).
 

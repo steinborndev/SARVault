@@ -15,9 +15,27 @@ def render(con, scope):
         st.info("No data in the current scope.")
         return
 
-    st.subheader("Potency landscape across targets")
-    st.plotly_chart(charts.target_potency_violin(sar), width="stretch")
-    st.caption("Each violin is the distribution of per-compound median pChEMBL for one target.")
+    st.subheader("Potency landscape")
+    group = st.radio(
+        "Group by", ["Target", "Payload class"], horizontal=True, key="sar_violin_group"
+    )
+    if group == "Payload class" and "payload_class" in sar.columns:
+        grouped = sar.assign(payload_class=logic.label_payload_class(sar["payload_class"]))
+        st.plotly_chart(
+            charts.target_potency_violin(
+                grouped, group_col="payload_class", group_label="payload class"
+            ),
+            width="stretch",
+        )
+        st.caption(
+            "Each violin is the distribution of per-compound-target median pChEMBL for one "
+            "ADC-payload mechanism class."
+        )
+    else:
+        st.plotly_chart(charts.target_potency_violin(sar), width="stretch")
+        st.caption(
+            "Each violin is the distribution of per-compound median pChEMBL for one target."
+        )
 
     st.divider()
     st.subheader("Rank compounds for one target")

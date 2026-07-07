@@ -111,15 +111,15 @@ def sar_heatmap(df, top_n: int = 30) -> go.Figure:
     return fig
 
 
-def target_potency_violin(df) -> go.Figure:
-    """Distribution (violin + inner box) of per-compound median pChEMBL per target."""
+def target_potency_violin(df, group_col: str = "target_pref_name", group_label: str = "target") -> go.Figure:
+    """Distribution (violin + inner box) of per-compound median pChEMBL per group."""
     fig = px.violin(
         df,
-        x="target_pref_name",
+        x=group_col,
         y="median_pchembl",
         box=True,
         points=False,
-        labels={"target_pref_name": "target", "median_pchembl": "median pChEMBL"},
+        labels={group_col: group_label, "median_pchembl": "median pChEMBL"},
     )
     fig.update_layout(height=420, margin={"l": 10, "r": 10, "t": 10, "b": 40})
     return fig
@@ -233,17 +233,26 @@ def embedding_scatter(df, color_by: str = "potency", top_scaffolds: int = 10) ->
     return fig
 
 
-def payload_class_potency(df) -> go.Figure:
-    """Distribution (violin + inner box) of per-compound best pChEMBL per payload class."""
+def cytotox_bar(df) -> go.Figure:
+    """Horizontal bar of best cellular potency per reference payload, colored by class."""
     if df is None or df.empty:
         return go.Figure()
-    fig = px.violin(
-        df,
-        x="payload_class",
-        y="best_pchembl",
-        box=True,
-        points=False,
-        labels={"payload_class": "payload class", "best_pchembl": "best pChEMBL"},
+    ordered = df.sort_values("best_p_cyto")
+    fig = px.bar(
+        ordered,
+        x="best_p_cyto",
+        y="reference_name",
+        color="payload_class",
+        orientation="h",
+        labels={
+            "best_p_cyto": "best cellular pChEMBL",
+            "reference_name": "",
+            "payload_class": "class",
+        },
     )
-    fig.update_layout(height=420, margin={"l": 10, "r": 10, "t": 10, "b": 40})
+    fig.update_layout(
+        height=max(160, 34 * len(ordered) + 90),
+        margin={"l": 10, "r": 10, "t": 10, "b": 40},
+        legend={"orientation": "h", "yanchor": "bottom", "y": 1.02},
+    )
     return fig

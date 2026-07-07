@@ -250,12 +250,25 @@ def step_selection(state, key: str, delta: int, n: int) -> None:
     state[key] = {"selection": {"rows": [new_row], "columns": [], "cells": []}}
 
 
-def payload_class_potency(catalog):
-    """Tidy [payload_class, best_pchembl] rows for the payload-class comparison chart.
+PAYLOAD_CLASS_LABELS = {
+    "tubulin_inhibitor": "Tubulin inhibitor",
+    "topo1_inhibitor": "Topoisomerase-I inhibitor",
+    "topo2_inhibitor": "Topoisomerase-II inhibitor",
+}
 
-    Drops compounds without a payload_class or a measured best potency.
-    """
-    cols = ["payload_class", "best_pchembl"]
-    if catalog is None or not set(cols).issubset(catalog.columns):
+
+def label_payload_class(series):
+    """Map payload_class codes to human-readable display labels."""
+    return series.map(lambda c: PAYLOAD_CLASS_LABELS.get(c, c))
+
+
+def cytotox_by_payload(cytotox):
+    """Per reference payload: best cellular potency (p_cyto) across tested cell lines."""
+    cols = ["reference_name", "payload_class", "best_p_cyto", "n_cell_lines"]
+    if cytotox is None or cytotox.empty:
         return pd.DataFrame(columns=cols)
-    return catalog.loc[:, cols].dropna(subset=cols).reset_index(drop=True)
+    rolled = cytotox.groupby(["reference_name", "payload_class"], as_index=False).agg(
+        best_p_cyto=("median_p_cyto", "max"),
+        n_cell_lines=("cell_line_chembl_id", "nunique"),
+    )
+    return rolled.sort_values("best_p_cyto", ascending=False).reset_index(drop=True)

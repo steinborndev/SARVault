@@ -40,26 +40,42 @@ def test_target_potency_violin_returns_figure():
     assert isinstance(charts.target_potency_violin(_sar_df()), go.Figure)
 
 
-def test_payload_class_potency_logic_filters_nulls():
-    catalog = pd.DataFrame(
+def test_payload_class_labels_and_cytotox_rollup():
+    labels = logic.label_payload_class(pd.Series(["topo1_inhibitor", "tubulin_inhibitor", "x"]))
+    assert list(labels) == ["Topoisomerase-I inhibitor", "Tubulin inhibitor", "x"]
+
+    cytotox = pd.DataFrame(
         {
-            "payload_class": ["topo1_inhibitor", "tubulin_inhibitor", None, "topo1_inhibitor"],
-            "best_pchembl": [9.1, 7.0, 8.0, None],
+            "reference_name": ["Exatecan", "Exatecan", "MMAE"],
+            "payload_class": ["topo1_inhibitor", "topo1_inhibitor", "tubulin_inhibitor"],
+            "cell_line_chembl_id": ["C1", "C2", "C3"],
+            "median_p_cyto": [8.0, 9.2, 9.5],
         }
     )
-    tidy = logic.payload_class_potency(catalog)
-    assert list(tidy.columns) == ["payload_class", "best_pchembl"]
-    assert len(tidy) == 2  # rows with a null class or null potency are dropped
-    assert set(tidy["payload_class"]) == {"topo1_inhibitor", "tubulin_inhibitor"}
+    rolled = logic.cytotox_by_payload(cytotox)
+    assert list(rolled.columns) == ["reference_name", "payload_class", "best_p_cyto", "n_cell_lines"]
+    exatecan = rolled[rolled["reference_name"] == "Exatecan"].iloc[0]
+    assert exatecan["best_p_cyto"] == 9.2  # best across the two cell lines
+    assert exatecan["n_cell_lines"] == 2
 
 
-def test_payload_class_potency_chart_returns_figure():
+def test_cytotox_bar_returns_figure():
     df = pd.DataFrame(
-        {"payload_class": ["topo1_inhibitor", "tubulin_inhibitor"], "best_pchembl": [9.1, 7.0]}
+        {
+            "reference_name": ["Exatecan", "MMAE"],
+            "payload_class": ["topo1_inhibitor", "tubulin_inhibitor"],
+            "best_p_cyto": [9.2, 9.5],
+            "n_cell_lines": [2, 1],
+        }
     )
-    assert isinstance(charts.payload_class_potency(df), go.Figure)
-    # empty frame must not raise
-    assert isinstance(charts.payload_class_potency(df.iloc[0:0]), go.Figure)
+    assert isinstance(charts.cytotox_bar(df), go.Figure)
+    assert isinstance(charts.cytotox_bar(df.iloc[0:0]), go.Figure)
+
+
+def test_target_potency_violin_groups_by_payload_class():
+    df = _sar_df().assign(payload_class=["Tubulin inhibitor", "Tubulin inhibitor"])
+    fig = charts.target_potency_violin(df, group_col="payload_class", group_label="payload class")
+    assert isinstance(fig, go.Figure)
 
 
 def test_compound_potency_bar_returns_figure():
@@ -495,5 +511,10 @@ def test_data_access_against_warehouse():
     prof = data.load_payload_class_profile(con)
     assert {"payload_class", "n_compounds", "median_pchembl"}.issubset(prof.columns)
     assert "payload_class" in cat.columns
+    assert "payload_class" in data.load_target_sar(con).columns
+    cyto = data.load_compound_cytotoxicity(con)
+    assert {"reference_name", "payload_class", "median_p_cyto", "cell_line_chembl_id"}.issubset(
+        cyto.columns
+    )
     cfg = data.pipeline_config()
     assert cfg["chembl_version"] and cfg["min_confidence_score"] >= 0

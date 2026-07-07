@@ -11,16 +11,6 @@ behind the ADC-payload shift from tubulin inhibitors (auristatins, maytansinoids
 toward topoisomerase-I inhibitors (camptothecin / exatecan).
 """
 
-_CLASS_LABELS = {
-    "tubulin_inhibitor": "Tubulin inhibitor",
-    "topo1_inhibitor": "Topoisomerase-I inhibitor",
-    "topo2_inhibitor": "Topoisomerase-II inhibitor",
-}
-
-
-def _relabel(series):
-    return series.map(lambda c: _CLASS_LABELS.get(c, c))
-
 
 def render(con, scope):
     st.markdown(_INTRO)
@@ -31,7 +21,7 @@ def render(con, scope):
         return
 
     display = profile.copy()
-    display["payload_class"] = _relabel(display["payload_class"])
+    display["payload_class"] = logic.label_payload_class(display["payload_class"])
     display = display.rename(
         columns={
             "payload_class": "payload class",
@@ -45,17 +35,36 @@ def render(con, scope):
         }
     )
     st.dataframe(display, hide_index=True, width="stretch")
+    st.caption(
+        "Per-class target potency (enzyme / binding pChEMBL). The potency distribution "
+        "behind these numbers is on the SAR Ranking page (group by payload class)."
+    )
 
     st.divider()
-    st.subheader("Potency distribution by class")
-    catalog = data.load_compound_catalog(con)
-    potency = logic.payload_class_potency(catalog)
-    if potency.empty:
-        st.info("No per-compound potency available to plot.")
+    st.subheader("Cellular cytotoxicity of reference payloads")
+    cytotox = data.load_compound_cytotoxicity(con)
+    if cytotox.empty:
+        st.info("No cytotoxicity data is available in this warehouse yet.")
         return
-    potency = potency.assign(payload_class=_relabel(potency["payload_class"]))
-    st.plotly_chart(charts.payload_class_potency(potency), use_container_width=True)
+
+    by_payload = logic.cytotox_by_payload(cytotox)
+    chart_df = by_payload.assign(
+        payload_class=logic.label_payload_class(by_payload["payload_class"])
+    )
+    st.plotly_chart(charts.cytotox_bar(chart_df), width="stretch")
+
+    table = by_payload.rename(
+        columns={
+            "reference_name": "payload",
+            "payload_class": "class",
+            "best_p_cyto": "best cellular pChEMBL",
+            "n_cell_lines": "cell lines",
+        }
+    )
+    table["class"] = logic.label_payload_class(table["class"])
+    st.dataframe(table, hide_index=True, width="stretch")
     st.caption(
-        "Best per-compound pChEMBL across the class's targets. Higher is more potent; "
-        "pChEMBL >= 9 is sub-nanomolar, the potency band that makes a viable ADC payload."
+        "Best cellular potency (p_cyto = -log10 of the GI50 / IC50 molar concentration) "
+        "across tested cell lines, for the named clinical / reference ADC payloads. "
+        "pChEMBL >= 9 is sub-nanomolar, the band that makes a viable payload."
     )
