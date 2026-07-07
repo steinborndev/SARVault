@@ -51,6 +51,10 @@ def _substructure_hits(smarts: str, smiles: tuple[str, ...]) -> dict:
 
 def render(con, scope):
     st.header("Compound library")
+    st.caption(
+        "Browse and filter every compound; open one for structure, properties, "
+        "per-target potency and structural analogs."
+    )
     target_sar = data.load_target_sar(con)
     catalog = data.load_compound_catalog(con)
     keys = logic.resolve_scope_keys(target_sar, catalog, scope)

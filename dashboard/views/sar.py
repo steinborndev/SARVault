@@ -7,6 +7,10 @@ from dashboard import charts, data, logic
 
 def render(con, scope):
     st.header("SAR ranking")
+    st.caption(
+        "Rank compounds by potency, and see how potency is distributed across targets "
+        "or payload classes."
+    )
     target_sar = data.load_target_sar(con)
     catalog = data.load_compound_catalog(con)
     keys = logic.resolve_scope_keys(target_sar, catalog, scope)
@@ -16,10 +20,16 @@ def render(con, scope):
         return
 
     st.subheader("Potency landscape")
-    group = st.radio(
-        "Group by", ["Target", "Payload class"], horizontal=True, key="sar_violin_group"
+    # The Payload class grouping needs the payload_class column (added to
+    # mart_target_sar in a later build); only offer the toggle when it is present,
+    # so an older warehouse shows the target view rather than a dead control.
+    has_class = "payload_class" in sar.columns
+    group = (
+        st.radio("Group by", ["Target", "Payload class"], horizontal=True, key="sar_violin_group")
+        if has_class
+        else "Target"
     )
-    if group == "Payload class" and "payload_class" in sar.columns:
+    if group == "Payload class":
         grouped = sar.assign(payload_class=logic.label_payload_class(sar["payload_class"]))
         st.plotly_chart(
             charts.target_potency_violin(

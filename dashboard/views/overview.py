@@ -20,6 +20,8 @@ The **Scope** selector (top right) narrows every page by target, approval status
 
 
 def render(con, scope):
+    st.header("Overview")
+    st.caption("The warehouse at a glance: scale, coverage and a guide to the pages.")
     target_sar = data.load_target_sar(con)
     catalog = data.load_compound_catalog(con)
     metrics = logic.overview_metrics(target_sar, catalog, scope)

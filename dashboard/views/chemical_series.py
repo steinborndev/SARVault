@@ -85,10 +85,9 @@ _CHEMBL_URL = "https://www.ebi.ac.uk/chembl/compound_report_card/{}/"
 
 def render(con, scope):
     st.header("Chemical series")
-    st.write(
-        "Compounds grouped by their Bemis-Murcko scaffold - the chemical series a "
-        "medicinal chemist reasons about. Each row is a scaffold shared by two or more "
-        "compounds; a wide potency range within one series is where the SAR lives."
+    st.caption(
+        "Compounds grouped by Bemis-Murcko scaffold; a wide potency range within one "
+        "series is where the SAR lives."
     )
 
     series = data.load_chemical_series(con)

@@ -4,16 +4,13 @@ import streamlit as st
 
 from dashboard import charts, data, logic
 
-_INTRO = """
-Compounds grouped by **ADC-payload mechanism class** (from the target they act on),
-so the tubulin and topoisomerase classes compare head to head. This is the chemistry
-behind the ADC-payload shift from tubulin inhibitors (auristatins, maytansinoids)
-toward topoisomerase-I inhibitors (camptothecin / exatecan).
-"""
-
 
 def render(con, scope):
-    st.markdown(_INTRO)
+    st.header("Payload classes")
+    st.caption(
+        "Tubulin vs topoisomerase payload chemistry: per-class potency and the cellular "
+        "cytotoxicity of the reference payloads."
+    )
 
     profile = data.load_payload_class_profile(con)
     if profile.empty:

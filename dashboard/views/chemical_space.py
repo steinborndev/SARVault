@@ -16,6 +16,10 @@ def _hac_by_smiles(smiles: tuple[str, ...]) -> dict:
 
 def render(con, scope):
     st.header("Chemical space")
+    st.caption(
+        "The physicochemical profile of the compound set, with an "
+        "approved-vs-research lens."
+    )
     target_sar = data.load_target_sar(con)
     catalog = data.load_compound_catalog(con)
     keys = logic.resolve_scope_keys(target_sar, catalog, scope)
