@@ -17,7 +17,7 @@ models:
       - name: target_chembl_id
         tests: [unique, not_null]
       - name: payload_class
-        description: "ADC-payload mechanism class from config/target_set.yml (via the target_payload_class seed)."
+        description: "ADC-payload mechanism class from config/target_set.yml (mirrored as the payload_classes dbt var)."
 
   - name: dim_assay
     description: "Assay dimension (one row per assay at/above the confidence floor)."

@@ -1,16 +1,19 @@
 """F3.1: payload_class dimension.
 
-Guards that the checked-in dbt seed (dbt/seeds/target_payload_class.csv) stays in
-sync with the single source of truth (config/target_set.yml), and that the extract
-config exposes the mapping. If these drift, the marts layer would mislabel targets.
+The single source of truth is config/target_set.yml. dim_target sources the
+mapping from the payload_classes dbt var (dbt/dbt_project.yml), mirrored from the
+config the same way standard_types is. These tests guard that mirror against
+drift and that the extract config exposes the mapping.
 """
 
-import csv
 from pathlib import Path
 
-from extract.config import load_config
-from scripts.gen_payload_class_seed import SEED_PATH, seed_rows
+import yaml
 
+from extract.config import load_config
+
+REPO = Path(__file__).resolve().parents[1]
+DBT_PROJECT = REPO / "dbt" / "dbt_project.yml"
 KNOWN_CLASSES = {"tubulin_inhibitor", "topo1_inhibitor", "topo2_inhibitor"}
 
 
@@ -24,20 +27,20 @@ def test_every_target_has_a_known_payload_class():
 
 def test_payload_class_map_matches_targets():
     config = load_config()
-    mapping = config.payload_class_map
-    assert mapping == {t.chembl_id: t.payload_class for t in config.targets}
+    assert config.payload_class_map == {
+        t.chembl_id: t.payload_class for t in config.targets
+    }
 
 
-def test_seed_is_in_sync_with_config():
+def test_dbt_var_mirrors_config():
     config = load_config()
-    expected = seed_rows(config)
+    expected = {t.chembl_id: t.payload_class for t in config.targets}
 
-    assert Path(SEED_PATH).exists(), "target_payload_class.csv seed is missing"
-    with Path(SEED_PATH).open(newline="") as handle:
-        rows = list(csv.reader(handle))
-
-    assert rows[0] == ["target_chembl_id", "payload_class"]
-    actual = [(r[0], r[1]) for r in rows[1:]]
-    assert actual == expected, (
-        "seed is out of sync with config; run: python -m scripts.gen_payload_class_seed"
+    project = yaml.safe_load(DBT_PROJECT.read_text())
+    dbt_map = {
+        m["target_chembl_id"]: m["payload_class"]
+        for m in project["vars"]["payload_classes"]
+    }
+    assert dbt_map == expected, (
+        "dbt payload_classes var is out of sync with config/target_set.yml"
     )

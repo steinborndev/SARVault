@@ -27,6 +27,14 @@ models:
 vars:
   standard_types: ["IC50", "GI50", "Ki", "Kd", "EC50"]
   min_confidence_score: 5
+  # Mirrors config/target_set.yml payload_class per target (the config is the SSOT;
+  # tests/test_payload_class.py guards this mirror against drift). Sourced by
+  # dim_target as an inline var so the dimension builds under a plain `dbt run`.
+  payload_classes:
+    - {target_chembl_id: "CHEMBL2095182", payload_class: "tubulin_inhibitor"}
+    - {target_chembl_id: "CHEMBL3832942", payload_class: "tubulin_inhibitor"}
+    - {target_chembl_id: "CHEMBL1781", payload_class: "topo1_inhibitor"}
+    - {target_chembl_id: "CHEMBL1806", payload_class: "topo2_inhibitor"}
   # Activity-cliff floor (mart_activity_cliff). Kept permissive so the mart holds the
   # candidate space; the dashboard filters/ranks (by SALI) up from here. Chosen from
   # the real-data profile (scripts/profile_sar.py): T>=0.75 & |dpChEMBL|>=1.0.

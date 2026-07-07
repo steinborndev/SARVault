@@ -1,12 +1,20 @@
 -- Target dimension: one row per target (human, in scope).
--- payload_class labels each target with its ADC-payload mechanism class,
--- sourced from config/target_set.yml via the target_payload_class seed.
+-- payload_class labels each target with its ADC-payload mechanism class. The
+-- mapping mirrors config/target_set.yml as the payload_classes dbt var (see
+-- dbt_project.yml); tests/test_payload_class.py guards the two against drift.
+-- Sourced as an inline var (not a seed) so the dimension builds under a plain
+-- `dbt run` (which does not load seeds), e.g. the incremental fact_activity path.
 with targets as (
     select * from {{ ref('stg_targets') }}
 ),
 
 payload_class as (
-    select target_chembl_id, payload_class from {{ ref('target_payload_class') }}
+    select * from (
+        values
+        {%- for m in var('payload_classes') %}
+            ('{{ m.target_chembl_id }}', '{{ m.payload_class }}'){{ "," if not loop.last }}
+        {%- endfor %}
+    ) as v(target_chembl_id, payload_class)
 )
 
 select
