@@ -34,3 +34,24 @@ activity:
   # A floor of 8 would near-empty the tubulin set, so we keep it permissive
   # and inspect the confidence distribution after the first extract (M1).
   min_confidence_score: 5
+
+# Reference ADC payloads (curated) for the cellular cytotoxicity pull (F3.2).
+# molecule_chembl_ids resolved via the ChEMBL molecule endpoint (2026-07). Cellular
+# GI50/IC50 (assay_type F) carry a raw standard_value but no pchembl_value, so they
+# never enter the target-scoped fact_activity path; this compound-based pull lands
+# them into a separate lineage (raw_cell_activities -> mart_compound_cytotoxicity).
+reference_payloads:
+  - {molecule_chembl_id: "CHEMBL65", name: "Camptothecin", payload_class: "topo1_inhibitor"}
+  - {molecule_chembl_id: "CHEMBL1743143", name: "SN-38", payload_class: "topo1_inhibitor"}
+  - {molecule_chembl_id: "CHEMBL1614650", name: "Exatecan", payload_class: "topo1_inhibitor"}
+  - {molecule_chembl_id: "CHEMBL84", name: "Topotecan", payload_class: "topo1_inhibitor"}
+  - {molecule_chembl_id: "CHEMBL481", name: "Irinotecan", payload_class: "topo1_inhibitor"}
+  - {molecule_chembl_id: "CHEMBL2111084", name: "Belotecan", payload_class: "topo1_inhibitor"}
+  - {molecule_chembl_id: "CHEMBL4082989", name: "MMAE", payload_class: "tubulin_inhibitor"}
+  - {molecule_chembl_id: "CHEMBL5184029", name: "MMAF", payload_class: "tubulin_inhibitor"}
+  - {molecule_chembl_id: "CHEMBL4802230", name: "Mertansine (DM1)", payload_class: "tubulin_inhibitor"}
+  - {molecule_chembl_id: "CHEMBL292702", name: "Maytansine", payload_class: "tubulin_inhibitor"}
+
+cell_activity:
+  standard_types: ["GI50", "IC50"]
+  assay_type: "F"   # functional / cell-based cytotoxicity

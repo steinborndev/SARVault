@@ -7,6 +7,7 @@ Usage:
 from extract.config import ExtractConfig, load_config
 from extract.extract_activities import extract_activities
 from extract.extract_assays import extract_assays
+from extract.extract_cell_activities import extract_cell_activities
 from extract.extract_molecules import extract_molecules
 from extract.extract_targets import extract_targets
 from extract.load_raw import load_raw
@@ -36,6 +37,14 @@ def run(config: ExtractConfig | None = None) -> None:
     ):
         load_raw(entity, records, version, endpoint=endpoint)
         print(f"{entity}: {len(records)} rows")
+
+    # Cellular cytotoxicity for the reference payloads: a separate, compound-based
+    # pull (no pchembl on cellular GI50/IC50), landed into its own raw entity so it
+    # never enters the target-scoped fact_activity path.
+    if config.reference_payloads and config.cell_activity:
+        cell_activities = extract_cell_activities(config)
+        load_raw("cell_activities", cell_activities, version, endpoint="activity")
+        print(f"cell_activities: {len(cell_activities)} rows")
 
 
 if __name__ == "__main__":

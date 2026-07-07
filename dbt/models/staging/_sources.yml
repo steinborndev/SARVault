@@ -15,6 +15,7 @@ sources:
       error_after: {count: 3650, period: day}
     tables:
       - name: activities
+      - name: cell_activities
       - name: molecules
       - name: targets
       - name: assays
