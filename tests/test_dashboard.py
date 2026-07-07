@@ -303,6 +303,65 @@ def test_scaffold_frame_and_framed_render():
     assert chem.scaffold_frame("not-a-smiles", members) is None
 
 
+# --- activity-cliff pair alignment (maximum common substructure) ---
+_CLIFF_A = "Cc1ccc(-c2ccc(C(=O)O)cc2)cc1.Cl"  # biphenyl acid + HCl salt
+_CLIFF_B = "Cc1ccc(-c2ccc(C(=O)N)cc2)cc1"     # same core, acid -> amide
+
+
+def test_pair_core_aligns_on_mcs_and_strips_salt():
+    import math
+
+    from rdkit import Chem
+
+    result = chem.pair_core(_CLIFF_A, _CLIFF_B)
+    assert result is not None
+    mol_a, mol_b, core = result
+    # Salt is dropped for the depiction: no chloride survives in either drawn mol.
+    assert not any(a.GetSymbol() == "Cl" for a in mol_a.GetAtoms())
+    assert not any(a.GetSymbol() == "Cl" for a in mol_b.GetAtoms())
+    # The shared core lands at the same coordinates in both mols (that is the point).
+    match_a, match_b = mol_a.GetSubstructMatch(core), mol_b.GetSubstructMatch(core)
+    assert match_a and len(match_a) == len(match_b)
+    conf_a, conf_b = mol_a.GetConformer(), mol_b.GetConformer()
+    max_dev = max(
+        math.hypot(
+            conf_a.GetAtomPosition(i).x - conf_b.GetAtomPosition(j).x,
+            conf_a.GetAtomPosition(i).y - conf_b.GetAtomPosition(j).y,
+        )
+        for i, j in zip(match_a, match_b)
+    )
+    assert max_dev < 0.5  # core overlays to well within a bond length
+    del Chem  # imported to make the RDKit dependency explicit
+
+
+def test_pair_frame_is_shared_and_fenceless():
+    mol_a, mol_b, core = chem.pair_core(_CLIFF_A, _CLIFF_B)
+    frame = chem.pair_frame(mol_a, mol_b, core)
+    assert frame is not None and len(frame) == 5
+    cx, cy, hx, hy, fence = frame
+    assert hx > 0 and hy > 0
+    assert fence is None  # a two-member pair has no outlier to fence off
+
+
+def test_render_pair_aligned_highlighted_and_fallbacks():
+    # Aligned + core wash: two valid SVGs.
+    svg_a, svg_b = chem.render_pair(_CLIFF_A, _CLIFF_B, highlight_core=True)
+    assert svg_a and "<svg" in svg_a
+    assert svg_b and "<svg" in svg_b
+
+    # align=False falls back to plain independent depictions.
+    plain_a, plain_b = chem.render_pair(_CLIFF_A, _CLIFF_B, align=False)
+    assert plain_a and plain_b
+
+    # A missing SMILES yields None for that side, not a crash.
+    none_a, some_b = chem.render_pair(None, _CLIFF_B)
+    assert none_a is None and some_b
+
+    # No common core (unrelated tiny fragments) falls back rather than raising.
+    fb_a, fb_b = chem.render_pair("CCO", "O")
+    assert fb_a and fb_b
+
+
 def test_overview_metrics_respects_scope():
     target_sar, catalog = _scope_fixtures()
     all_m = logic.overview_metrics(target_sar, catalog, {})
