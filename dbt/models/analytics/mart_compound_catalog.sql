@@ -36,9 +36,13 @@ select
     s.n_targets,
     s.best_pchembl,
     s.best_target,
+    t.payload_class,
     s.selectivity_index,
     coalesce(p.n_pdb_entries, 0)     as n_pdb_entries,
     coalesce(p.n_pdb_entries, 0) > 0 as has_pdb
 from selectivity s
 join compound c on s.compound_key = c.compound_key
 left join pdb p on s.compound_key = p.compound_key
+-- payload_class of the compound's most-potent (best) target; the catalog grain
+-- stays one row per compound. Multi-class compounds are deferred to a bridge (F3.x).
+left join {{ ref('dim_target') }} t on s.best_target = t.target_chembl_id

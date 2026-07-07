@@ -6,18 +6,25 @@
 chembl_version: "36"
 organism: "Homo sapiens"
 
+# payload_class groups targets into ADC-payload mechanism classes. It is the
+# single source of truth for the payload_class dimension (dbt seed + marts);
+# regenerate the seed after editing here (see scripts/gen_payload_class_seed.py).
 targets:
   # --- Tubulin inhibitors (auristatin / maytansinoid ADC payloads; taxanes, vinca) ---
   - chembl_id: "CHEMBL2095182"       # Tubulin (Homo sapiens, PROTEIN COMPLEX GROUP)
     label: "tubulin"                 # primary, high-coverage tubulin target
+    payload_class: "tubulin_inhibitor"
   - chembl_id: "CHEMBL3832942"       # Tubulin beta (Homo sapiens, PROTEIN FAMILY)
     label: "tubulin_beta"            # complementary beta-tubulin coverage
+    payload_class: "tubulin_inhibitor"
 
   # --- Topoisomerase inhibitors ---
   - chembl_id: "CHEMBL1781"          # DNA topoisomerase 1 (SINGLE PROTEIN; TOP1, UniProt P11387)
     label: "topoisomerase_i"         # camptothecin / exatecan (DXd) payload class
+    payload_class: "topo1_inhibitor"
   - chembl_id: "CHEMBL1806"          # DNA topoisomerase 2-alpha (SINGLE PROTEIN; TOP2A, UniProt P11388)
     label: "topoisomerase_ii_alpha"  # anthracyclines (classical chemo)
+    payload_class: "topo2_inhibitor"
 
 activity:
   standard_types: ["IC50", "GI50", "Ki", "Kd", "EC50"]

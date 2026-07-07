@@ -58,6 +58,8 @@ models:
         tests: [not_null]
       - name: best_pchembl
         tests: [not_null]
+      - name: payload_class
+        description: "ADC-payload mechanism class of the compound's best (most-potent) target."
       - name: n_targets
         tests: [not_null]
       - name: has_pdb
