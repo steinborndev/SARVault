@@ -1,11 +1,21 @@
 # Streamlit Community Cloud runtime dependencies for the SARVault dashboard.
 # Mirrors the [dashboard] extra in pyproject.toml, plus pyyaml (read by
-# extract.config for the Data Quality provenance panel). streamlit itself is
-# preinstalled on Community Cloud but is pinned here for a reproducible floor.
-streamlit>=1.36
-plotly>=5.22
-duckdb>=1.0
-rdkit>=2023.9
-pandas>=2.0
-pyyaml>=6.0
-requests>=2.31
+# extract.config for the Data Quality provenance panel).
+#
+# These are pinned to exact, mutually compatible versions rather than lower
+# bounds. Community Cloud re-resolves on every deploy, and unbounded ranges let
+# the native stack (numpy / pyarrow / pandas) drift to the newest releases.
+# A numpy 2.5 / pandas 3.0 resolution loaded a pyarrow/rdkit binary built
+# against a different numpy ABI and segfaulted the interpreter at import,
+# before any app code ran. numpy and pyarrow are pinned explicitly (they are
+# only pulled in transitively) because that ABI is the actual failure surface.
+# Versions below match the known-good local environment. Bump deliberately.
+streamlit==1.58.0
+plotly==6.0.0
+duckdb==1.5.4
+rdkit==2026.3.3
+pandas==2.2.3
+numpy==1.26.4
+pyarrow==19.0.1
+pyyaml==6.0.2
+requests==2.34.2
