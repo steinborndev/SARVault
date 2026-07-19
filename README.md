@@ -5,7 +5,7 @@
 📚 **[Data docs & lineage](https://knusperftw.github.io/SARVault/)** (dbt docs, published from CI)
 
 A reproducible, layered data warehouse over the public **ChEMBL** bioactivity
-database, scoped to **cytotoxic / tubulin-targeting compounds** — the chemical
+database, scoped to **cytotoxic / tubulin-targeting compounds** - the chemical
 space behind antibody–drug-conjugate (ADC) payloads and classical
 chemotherapeutics.
 
@@ -17,7 +17,7 @@ full design.
 It demonstrates ingestion from a real external REST API (pagination,
 idempotency, provenance), a medallion-style dbt transformation layer, a
 documented dimensional model, and a warehouse that runs on **DuckDB**
-(local / CI) and is **Snowflake-ready** — the same dbt models build against a
+(local / CI) and is **Snowflake-ready** - the same dbt models build against a
 second `dbt-snowflake` profile (not yet run against a live Snowflake account).
 
 It answers three questions about the payload chemical space: structure–activity
@@ -93,23 +93,23 @@ via dbt vars (`cliff_min_tanimoto`, `cliff_min_delta_pchembl`).
 The **Compound Library** page turns the ECFP4 fingerprints and Murcko scaffolds
 into interactive structure search:
 
-- **Structural analogs** — open any compound to see its nearest neighbours by ECFP4
+- **Structural analogs** - open any compound to see its nearest neighbours by ECFP4
   Tanimoto similarity, each annotated with its best potency and the potency delta to
-  the query (a positive Δ flags a more potent close analog — a lead for the series).
-- **Substructure filter** — enter a SMARTS query in the sidebar to keep only compounds
+  the query (a positive Δ flags a more potent close analog - a lead for the series).
+- **Substructure filter** - enter a SMARTS query in the sidebar to keep only compounds
   containing that motif, with the matching atoms highlighted in the 2D depiction. For
   example, `c1ccccc1` keeps benzene-bearing compounds, `C(=O)N` keeps amides, and
   `[#7]` keeps anything with a nitrogen. An invalid pattern is flagged and ignored.
-- **Activity cliffs** — the **Activity Cliffs** page surfaces pairs of structurally
+- **Activity cliffs** - the **Activity Cliffs** page surfaces pairs of structurally
   similar compounds (high ECFP4 Tanimoto) whose potency differs sharply on the same
-  target — the sharpest signal in SAR. Pairs are ranked by SALI (= |Δ pChEMBL| /
+  target - the sharpest signal in SAR. Pairs are ranked by SALI (= |Δ pChEMBL| /
   (1 − Tanimoto)) and shown side by side; similarity and Δ-potency thresholds are
   adjustable, and identical-2D-fingerprint pairs (stereo/tautomer/replicate) are
   flagged rather than mistaken for structural cliffs.
-- **Chemical series** — the **Chemical Series** page groups compounds by their
+- **Chemical series** - the **Chemical Series** page groups compounds by their
   Bemis-Murcko scaffold, showing each series' size, potency spread and target reach,
   and drilling into the shared scaffold and its member compounds.
-- **Structural embedding** — the **Chemical Space** page can project every compound
+- **Structural embedding** - the **Chemical Space** page can project every compound
   into a 2-D UMAP of its ECFP4 fingerprint (proximity ≈ structural similarity),
   coloured by potency, approval class or scaffold series, so it's visible where
   potency concentrates in chemical space. Coordinates are precomputed once in the
